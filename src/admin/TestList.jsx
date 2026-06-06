@@ -299,6 +299,27 @@ export default function TestList() {
               </div>
             </div>
 
+            {/* Schedule & Expiry info if set */}
+            {(publishModal.scheduled_at || publishModal.expires_at) && (
+              <div style={{ background: '#E8F4FD', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '0.83rem', border: '1px solid #90CAF9' }}>
+                <div style={{ fontWeight: 700, color: '#1565C0', marginBottom: '8px' }}>⏰ Schedule Settings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Auto-Publish (IST)</span><br />
+                    <strong style={{ color: '#1565C0' }}>
+                      {publishModal.scheduled_at ? toIST(publishModal.scheduled_at) : '— (Publish Now)'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Expiry / End Time (IST)</span><br />
+                    <strong style={{ color: publishModal.expires_at ? '#E67E22' : 'var(--success)' }}>
+                      {publishModal.expires_at ? toIST(publishModal.expires_at) : 'Always Open'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">📢 Channel *</label>
               {channels.length === 0 ? (
