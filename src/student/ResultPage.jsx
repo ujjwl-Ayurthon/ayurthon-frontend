@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function ResultPage() {
-  const { state } = useLocation()
-  const navigate = useNavigate()
-  const [tab, setTab] = useState('summary')
+  var location = useLocation()
+  var navigate = useNavigate()
+  var state    = location.state
+  var [tab, setTab] = useState('all')
 
   if (state && state.alreadyAttempted) {
     return (
@@ -13,7 +14,7 @@ export default function ResultPage() {
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🚫</div>
           <h2 style={{ color: 'var(--error)', marginBottom: '8px' }}>Already Attempted!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Aapne <strong>{state.testTitle}</strong> pehle hi attempt kar liya hai.
+            Aapne pehle hi yeh test attempt kar liya hai.
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>
             Ek username se sirf ek baar attempt allowed hai.
@@ -31,21 +32,22 @@ export default function ResultPage() {
     )
   }
 
-  var result = state.result
-  var testTitle = state.testTitle
-  var testId = state.testId
+  var result    = state.result
+  var testTitle = state.testTitle || ''
+  var testId    = state.testId    || ''
 
-  var score = result.score || 0
-  var total = result.total || 0
-  var correct = result.correct || 0
-  var incorrect = result.incorrect || 0
-  var unattempted = result.unattempted || 0
-  var accuracy = result.accuracy || 0
-  var rank = result.rank || 0
-  var time_taken_seconds = result.time_taken_seconds || 0
-  var wrong_questions = result.wrong_questions || []
-  var skipped_questions = result.skipped_questions || []
-  var answers = result.answers || []
+  var score              = result.score              || 0
+  var totalMarks         = result.total_marks        || result.total || 0
+  var totalQ             = result.total              || 0
+  var correct            = result.correct            || 0
+  var incorrect          = result.incorrect          || 0
+  var unattempted        = result.unattempted        || 0
+  var accuracy           = result.accuracy           || 0
+  var rank               = result.rank               || 0
+  var timeSec            = result.time_taken_seconds || 0
+  var wrongQuestions     = result.wrong_questions    || []
+  var skippedQuestions   = result.skipped_questions  || []
+  var answers            = result.answers            || []
 
   function formatTime(sec) {
     var m = Math.floor(sec / 60)
@@ -56,82 +58,131 @@ export default function ResultPage() {
   function getGrade() {
     if (accuracy >= 90) return { label: 'Excellent! 🏆', color: '#FFD700' }
     if (accuracy >= 75) return { label: 'Very Good! 🌟', color: 'var(--success)' }
-    if (accuracy >= 60) return { label: 'Good 👍', color: 'var(--saffron)' }
-    if (accuracy >= 40) return { label: 'Average 📚', color: '#E67E22' }
+    if (accuracy >= 60) return { label: 'Good 👍',        color: 'var(--saffron)' }
+    if (accuracy >= 40) return { label: 'Average 📚',     color: '#E67E22' }
     return { label: 'Need Practice 💪', color: 'var(--error)' }
   }
 
   var grade = getGrade()
 
+  // Build full question data map from answers array
+  // answers = [{ question_id, selected_option, correct_option, is_correct, is_skipped }]
   var answerMap = {}
   answers.forEach(function(a) {
-    answerMap[String(a.question_id)] = a.selected_option
+    answerMap[String(a.question_id)] = a
   })
 
-  var tabs = [
-    { key: 'summary', label: '📊 Summary' },
-    { key: 'wrong',   label: '❌ Wrong (' + wrong_questions.length + ')' },
-    { key: 'skipped', label: '⬜ Skipped (' + skipped_questions.length + ')' },
-    { key: 'all',     label: '📋 All Answers' }
+  // Merge wrong/skipped question details with answer data
+  var wrongMap   = {}
+  var skippedMap = {}
+  wrongQuestions.forEach(function(q)   { wrongMap[String(q._id)]   = q })
+  skippedQuestions.forEach(function(q) { skippedMap[String(q._id)] = q })
+
+  // Build display lists from answers array (preserves order)
+  var allItems      = []
+  var correctItems  = []
+  var wrongItems    = []
+  var skippedItems  = []
+
+  answers.forEach(function(a, idx) {
+    var qId = String(a.question_id)
+    var qDetail = wrongMap[qId] || skippedMap[qId] || null
+    var item = { idx: idx, answer: a, qDetail: qDetail, qId: qId }
+    allItems.push(item)
+    if (a.is_skipped)       skippedItems.push(item)
+    else if (a.is_correct)  correctItems.push(item)
+    else                    wrongItems.push(item)
+  })
+
+  var tabList = [
+    { key: 'all',     label: 'All (' + answers.length + ')',        color: 'var(--dark)' },
+    { key: 'correct', label: 'Correct (' + correctItems.length + ')', color: 'var(--success)' },
+    { key: 'wrong',   label: 'Wrong (' + wrongItems.length + ')',     color: 'var(--error)' },
+    { key: 'skipped', label: 'Skipped (' + skippedItems.length + ')', color: '#E67E22' }
   ]
 
+  var displayItems = tab === 'all'     ? allItems
+                   : tab === 'correct' ? correctItems
+                   : tab === 'wrong'   ? wrongItems
+                   : skippedItems
+
   function QuestionCard(props) {
-    var q = props.q
-    var index = props.index
-    var label = props.label
-    var labelColor = props.labelColor
-    var labelBg = props.labelBg
-    var studentAns = props.studentAns
+    var item     = props.item
+    var a        = item.answer
+    var q        = item.qDetail
+    var num      = item.idx + 1
+    var isSkipped = a.is_skipped
+    var isCorrect = a.is_correct
+
+    var labelText = isSkipped ? 'Skipped' : isCorrect ? 'Correct' : 'Wrong'
+    var labelBg   = isSkipped ? '#FFF3CD' : isCorrect ? 'var(--green-light)' : '#FDE8E8'
+    var labelCol  = isSkipped ? '#856404' : isCorrect ? 'var(--success)'     : 'var(--error)'
+    var borderCol = isSkipped ? '#F0C040' : isCorrect ? 'var(--success)'     : 'var(--error)'
 
     return (
-      <div className="card" style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          <span className="badge" style={{ background: labelBg, color: labelColor }}>
-            {label} Q{index + 1}
+      <div style={{ border: '1.5px solid ' + borderCol, borderRadius: '10px', padding: '14px', marginBottom: '12px', background: 'white' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="badge" style={{ background: labelBg, color: labelCol }}>
+            {isSkipped ? '⬜' : isCorrect ? '✅' : '❌'} {labelText}
           </span>
-          <span className="badge" style={{ background: '#FFF3CD', color: '#856404', fontSize: '0.7rem' }}>
-            {q.type ? q.type.replace(/_/g, ' ') : 'mcq'}
-          </span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700 }}>Q{num}</span>
+          {q && q.type && (
+            <span className="badge" style={{ background: '#F0F4FF', color: '#3730A3', fontSize: '0.7rem' }}>
+              {q.type.replace(/_/g, ' ')}
+            </span>
+          )}
         </div>
 
-        <p className="deva" style={{ fontSize: '0.95rem', lineHeight: '1.9', marginBottom: '12px', fontWeight: 500 }}>
-          {q.text}
-        </p>
+        {q ? (
+          <>
+            <p className="deva" style={{ fontSize: '0.95rem', lineHeight: '1.9', marginBottom: '12px', fontWeight: 500 }}>
+              {q.text}
+            </p>
 
-        {Object.entries(q.options).map(function(entry) {
-          var key = entry[0]
-          var val = entry[1]
-          var isCorrect = key === q.correct_answer
-          var isSelected = key === studentAns
-          return (
-            <div key={key} style={{
-              padding: '8px 14px',
-              marginBottom: '6px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              border: '2px solid ' + (isCorrect ? 'var(--success)' : isSelected ? 'var(--error)' : 'var(--border)'),
-              background: isCorrect ? 'var(--green-light)' : isSelected ? '#FDE8E8' : 'white',
-              fontWeight: (isCorrect || isSelected) ? 600 : 400
-            }} className="deva">
-              {isCorrect ? '✅' : isSelected ? '❌' : '○'} <strong>{key}.</strong> {val}
-              {isCorrect && (
-                <span style={{ fontSize: '0.72rem', color: 'var(--success)', marginLeft: '8px' }}>(सही उत्तर)</span>
-              )}
-              {isSelected && !isCorrect && (
-                <span style={{ fontSize: '0.72rem', color: 'var(--error)', marginLeft: '8px' }}>(आपका उत्तर)</span>
-              )}
+            {q.options && Object.entries(q.options).map(function(entry) {
+              var key = entry[0]
+              var val = entry[1]
+              var isRightAns  = key === a.correct_option
+              var isChosen    = key === a.selected_option
+              var bg     = isRightAns ? 'var(--green-light)' : isChosen ? '#FDE8E8' : 'white'
+              var border = isRightAns ? 'var(--success)'     : isChosen ? 'var(--error)' : 'var(--border)'
+              var fw     = (isRightAns || isChosen) ? 600 : 400
+              return (
+                <div key={key} style={{ padding: '8px 14px', marginBottom: '6px', borderRadius: '8px', fontSize: '0.9rem', border: '2px solid ' + border, background: bg, fontWeight: fw }} className="deva">
+                  {isRightAns ? '✅' : isChosen ? '❌' : '○'} <strong>{key}.</strong> {val}
+                  {isRightAns && !isChosen && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--success)', marginLeft: '8px' }}>(सही उत्तर)</span>
+                  )}
+                  {isChosen && !isRightAns && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--error)', marginLeft: '8px' }}>(आपका उत्तर)</span>
+                  )}
+                  {isChosen && isRightAns && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--success)', marginLeft: '8px' }}>(सही ✓)</span>
+                  )}
+                </div>
+              )
+            })}
+
+            {q.explanation && (
+              <div style={{ marginTop: '10px', padding: '10px', background: 'var(--saffron-light)', borderRadius: '8px', fontSize: '0.85rem' }}>
+                💡 <strong>व्याख्या:</strong> {q.explanation}
+              </div>
+            )}
+            {q.reference && (
+              <div style={{ marginTop: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                📖 {q.reference}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ padding: '10px', background: '#F8F9FA', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            <div style={{ marginBottom: '6px' }}>
+              Your answer: <strong style={{ color: a.selected_option ? (a.is_correct ? 'var(--success)' : 'var(--error)') : '#E67E22' }}>
+                {a.selected_option || '— (Skipped)'}
+              </strong>
+              {' '} | Correct: <strong style={{ color: 'var(--success)' }}>{a.correct_option}</strong>
             </div>
-          )
-        })}
-
-        {q.explanation && (
-          <div style={{ marginTop: '10px', padding: '10px', background: 'var(--saffron-light)', borderRadius: '8px', fontSize: '0.85rem' }}>
-            💡 <strong>व्याख्या:</strong> {q.explanation}
-          </div>
-        )}
-        {q.reference && (
-          <div style={{ marginTop: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            📖 {q.reference}
+            <small>Question details load nahi hue</small>
           </div>
         )}
       </div>
@@ -151,21 +202,19 @@ export default function ResultPage() {
 
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '20px 16px' }}>
 
+        {/* Hero */}
         <div className="result-hero">
           <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', marginBottom: '8px' }}>आपका Result</div>
           <div className="result-score">
             {score}
-            <span style={{ fontSize: '1.5rem', color: 'rgba(255,255,255,0.7)' }}>/{total}</span>
+            <span style={{ fontSize: '1.4rem', color: 'rgba(255,255,255,0.6)' }}>/{totalMarks}</span>
           </div>
           <div className="result-rank">🏆 Rank: #{rank}</div>
-          <div style={{ marginTop: '12px', fontSize: '1.1rem', color: grade.color, fontWeight: 700 }}>
-            {grade.label}
-          </div>
-          <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
-            ⏱ {formatTime(time_taken_seconds)}
-          </div>
+          <div style={{ marginTop: '10px', fontSize: '1rem', color: grade.color, fontWeight: 700 }}>{grade.label}</div>
+          <div style={{ marginTop: '6px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>⏱ {formatTime(timeSec)}</div>
         </div>
 
+        {/* Stats */}
         <div className="stats-grid" style={{ marginBottom: '20px' }}>
           <div className="stat-card">
             <div className="stat-number" style={{ color: 'var(--success)' }}>{correct}</div>
@@ -185,13 +234,50 @@ export default function ResultPage() {
           </div>
         </div>
 
+        {/* Score breakdown */}
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.88rem' }}>
+            <div style={{ padding: '10px', background: 'var(--saffron-light)', borderRadius: '8px' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Score</div>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--saffron)' }}>{score} / {totalMarks}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>+4 per correct, -{(Number(result.negative_marks) || 1)} per wrong</div>
+            </div>
+            <div style={{ padding: '10px', background: 'var(--green-light)', borderRadius: '8px' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Rank</div>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--green)' }}>#{rank}</div>
+            </div>
+            <div style={{ padding: '10px', background: '#F0F4FF', borderRadius: '8px' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Time</div>
+              <div style={{ fontWeight: 700, color: '#3730A3' }}>{formatTime(timeSec)}</div>
+            </div>
+            <div style={{ padding: '10px', background: '#FDE8E8', borderRadius: '8px' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Wrong + Skipped</div>
+              <div style={{ fontWeight: 700, color: 'var(--error)' }}>{incorrect + unattempted}</div>
+            </div>
+          </div>
+          <div style={{ marginTop: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '5px' }}>
+              <span>Accuracy (attempted only)</span><span style={{ fontWeight: 700 }}>{accuracy}%</span>
+            </div>
+            <div style={{ background: 'var(--border)', borderRadius: '8px', height: '10px', overflow: 'hidden' }}>
+              <div style={{ width: accuracy + '%', background: accuracy >= 60 ? 'var(--success)' : 'var(--error)', height: '100%', borderRadius: '8px', transition: 'width 1s' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          {tabs.map(function(t) {
+          {tabList.map(function(t) {
             return (
               <button
                 key={t.key}
-                className={'btn btn-sm ' + (tab === t.key ? 'btn-primary' : 'btn-outline')}
                 onClick={function() { setTab(t.key) }}
+                style={{
+                  padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  fontSize: '0.85rem', fontWeight: tab === t.key ? 700 : 500,
+                  background: tab === t.key ? t.color : 'var(--border)',
+                  color:      tab === t.key ? 'white'  : 'var(--text)'
+                }}
               >
                 {t.label}
               </button>
@@ -199,135 +285,30 @@ export default function ResultPage() {
           })}
           {testId && (
             <button
-              className="btn btn-outline btn-sm"
-              style={{ marginLeft: 'auto' }}
               onClick={function() { navigate('/leaderboard/' + testId) }}
+              style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: '8px', border: '2px solid var(--saffron)', background: 'white', color: 'var(--saffron)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
             >
               🏆 Leaderboard
             </button>
           )}
         </div>
 
-        {tab === 'summary' && (
-          <div className="card">
-            <div className="card-title">📊 Performance Summary</div>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                <span>Accuracy</span><span>{accuracy}%</span>
-              </div>
-              <div style={{ background: 'var(--border)', borderRadius: '8px', height: '12px', overflow: 'hidden' }}>
-                <div style={{
-                  width: accuracy + '%',
-                  background: accuracy >= 60 ? 'var(--success)' : 'var(--error)',
-                  height: '100%',
-                  borderRadius: '8px',
-                  transition: 'width 1s'
-                }} />
-              </div>
+        {/* Question Cards */}
+        {displayItems.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <div style={{ fontSize: '3rem' }}>
+              {tab === 'correct' ? '🎉' : tab === 'skipped' ? '💯' : '✅'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.88rem' }}>
-              <div style={{ padding: '10px', background: 'var(--saffron-light)', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)' }}>Score</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--saffron)' }}>{score} / {total}</div>
-              </div>
-              <div style={{ padding: '10px', background: 'var(--green-light)', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)' }}>Your Rank</div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--green)' }}>#{rank}</div>
-              </div>
-              <div style={{ padding: '10px', background: '#F0F4FF', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)' }}>Time Taken</div>
-                <div style={{ fontWeight: 700, color: '#3730A3' }}>{formatTime(time_taken_seconds)}</div>
-              </div>
-              <div style={{ padding: '10px', background: '#FDE8E8', borderRadius: '8px' }}>
-                <div style={{ color: 'var(--text-muted)' }}>Wrong + Skipped</div>
-                <div style={{ fontWeight: 700, color: 'var(--error)' }}>{incorrect + unattempted} questions</div>
-              </div>
-            </div>
-            {(wrong_questions.length > 0 || skipped_questions.length > 0) && (
-              <div style={{ marginTop: '16px', padding: '12px', background: '#FFF3CD', borderRadius: '8px', fontSize: '0.85rem', color: '#856404' }}>
-                💡 <strong>{wrong_questions.length} galat</strong> aur <strong>{skipped_questions.length} skip</strong> — review tab mein jaake padh lo!
-              </div>
-            )}
+            <p style={{ fontWeight: 700, color: 'var(--success)', marginTop: '8px' }}>
+              {tab === 'correct' ? 'Is section mein koi correct nahi' :
+               tab === 'wrong'   ? 'Koi galat jawab nahi!' :
+               tab === 'skipped' ? 'Koi skip nahi kiya!' : 'Koi data nahi'}
+            </p>
           </div>
-        )}
-
-        {tab === 'wrong' && (
-          <div>
-            {wrong_questions.length === 0 ? (
-              <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-                <div style={{ fontSize: '3rem' }}>🎉</div>
-                <p style={{ fontWeight: 700, color: 'var(--success)', marginTop: '8px' }}>Koi galat jawab nahi!</p>
-              </div>
-            ) : (
-              wrong_questions.map(function(q, i) {
-                return (
-                  <QuestionCard
-                    key={q._id}
-                    q={q}
-                    index={i}
-                    label="❌"
-                    labelColor="var(--error)"
-                    labelBg="#FDE8E8"
-                    studentAns={answerMap[String(q._id)]}
-                  />
-                )
-              })
-            )}
-          </div>
-        )}
-
-        {tab === 'skipped' && (
-          <div>
-            {skipped_questions.length === 0 ? (
-              <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-                <div style={{ fontSize: '3rem' }}>💯</div>
-                <p style={{ fontWeight: 700, color: 'var(--success)', marginTop: '8px' }}>Koi question skip nahi kiya!</p>
-              </div>
-            ) : (
-              skipped_questions.map(function(q, i) {
-                return (
-                  <QuestionCard
-                    key={q._id}
-                    q={q}
-                    index={i}
-                    label="⬜ Skipped"
-                    labelColor="#856404"
-                    labelBg="#FFF3CD"
-                    studentAns={null}
-                  />
-                )
-              })
-            )}
-          </div>
-        )}
-
-        {tab === 'all' && (
-          <div className="card">
-            <div className="card-title">📋 All Answers</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
-              {answers.map(function(a, i) {
-                return (
-                  <div key={i} style={{
-                    padding: '8px',
-                    borderRadius: '8px',
-                    textAlign: 'center',
-                    fontSize: '0.8rem',
-                    background: a.is_correct ? 'var(--green-light)' : a.is_skipped ? '#F5F5F5' : '#FDE8E8',
-                    border: '1.5px solid ' + (a.is_correct ? 'var(--success)' : a.is_skipped ? '#ccc' : 'var(--error)')
-                  }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Q{i + 1}</div>
-                    <div style={{ fontWeight: 700, color: a.is_correct ? 'var(--success)' : a.is_skipped ? 'var(--text-muted)' : 'var(--error)' }}>
-                      {a.selected_option || '—'}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--success)' }}>✓{a.correct_option}</div>
-                    <div style={{ fontSize: '0.65rem', marginTop: '2px', color: a.is_correct ? 'var(--success)' : a.is_skipped ? '#999' : 'var(--error)' }}>
-                      {a.is_correct ? '✅' : a.is_skipped ? '⬜' : '❌'}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+        ) : (
+          displayItems.map(function(item) {
+            return <QuestionCard key={item.qId + '_' + item.idx} item={item} />
+          })
         )}
 
       </div>
