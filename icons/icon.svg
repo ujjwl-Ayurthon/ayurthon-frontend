@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#1A1A2E"/>
+  <circle cx="256" cy="220" r="140" fill="#E8750A"/>
+  <text x="256" y="270" font-size="160" text-anchor="middle" fill="white" font-family="serif">🌿</text>
+  <text x="256" y="430" font-size="58" font-weight="bold" text-anchor="middle" fill="#E8750A" font-family="Arial,sans-serif" letter-spacing="4">AYURTHON</text>
+</svg>
