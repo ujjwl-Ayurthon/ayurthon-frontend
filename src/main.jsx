@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 
-// Admin Pages
+// Admin
 import AdminLogin    from './admin/AdminLogin'
 import AdminLayout   from './admin/AdminLayout'
 import Upload        from './admin/Upload'
@@ -12,23 +12,49 @@ import TestBuilder   from './admin/TestBuilder'
 import TestList      from './admin/TestList'
 import ResultsAdmin  from './admin/ResultsAdmin'
 
-// Student Pages
-import TestAttempt   from './student/TestAttempt'
-import ResultPage    from './student/ResultPage'
-import Leaderboard   from './student/Leaderboard'
+// Student
+import StudentLogin     from './student/StudentLogin'
+import StudentDashboard from './student/StudentDashboard'
+import StudentProgress  from './student/StudentProgress'
+import StudentProfile   from './student/StudentProfile'
+import TestAttempt      from './student/TestAttempt'
+import ResultPage       from './student/ResultPage'
+import Leaderboard      from './student/Leaderboard'
 
-function PrivateRoute({ children }) {
-  const token = localStorage.getItem('ayurthon_admin_token')
+function AdminRoute({ children }) {
+  var token = localStorage.getItem('ayurthon_admin_token')
   return token ? children : <Navigate to="/admin/login" />
+}
+
+function StudentRoute({ children }) {
+  var token = localStorage.getItem('ayurthon_student_token')
+  return token ? children : <Navigate to="/student/login" />
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
+        {/* Root redirect */}
+        <Route path="/" element={<Navigate to="/student/login" />} />
+
+        {/* Student Auth */}
+        <Route path="/student/login" element={<StudentLogin />} />
+
+        {/* Student App */}
+        <Route path="/student/dashboard" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+        <Route path="/student/progress"  element={<StudentRoute><StudentProgress /></StudentRoute>} />
+        <Route path="/student/profile"   element={<StudentRoute><StudentProfile /></StudentRoute>} />
+        <Route path="/student/tests"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+
+        {/* Test Flow — no auth required (link from Telegram) */}
+        <Route path="/test/:token"          element={<TestAttempt />} />
+        <Route path="/result/:result_id"    element={<ResultPage />} />
+        <Route path="/leaderboard/:test_id" element={<Leaderboard />} />
+
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
+        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<Navigate to="/admin/upload" />} />
           <Route path="upload"    element={<Upload />} />
           <Route path="questions" element={<QuestionBank />} />
@@ -37,13 +63,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="results/:test_id" element={<ResultsAdmin />} />
         </Route>
 
-        {/* Student */}
-        <Route path="/test/:token"          element={<TestAttempt />} />
-        <Route path="/result/:result_id"    element={<ResultPage />} />
-        <Route path="/leaderboard/:test_id" element={<Leaderboard />} />
-
-        {/* Default */}
-        <Route path="*" element={<Navigate to="/admin/login" />} />
+        <Route path="*" element={<Navigate to="/student/login" />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
