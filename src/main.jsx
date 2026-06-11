@@ -4,13 +4,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 
 // Admin
-import AdminLogin    from './admin/AdminLogin'
-import AdminLayout   from './admin/AdminLayout'
-import Upload        from './admin/Upload'
-import QuestionBank  from './admin/QuestionBank'
-import TestBuilder   from './admin/TestBuilder'
-import TestList      from './admin/TestList'
-import ResultsAdmin  from './admin/ResultsAdmin'
+import AdminLogin     from './admin/AdminLogin'
+import AdminLayout    from './admin/AdminLayout'
+import AdminDashboard from './admin/AdminDashboard'
+import Upload         from './admin/Upload'
+import QuestionBank   from './admin/QuestionBank'
+import TestBuilder    from './admin/TestBuilder'
+import TestList       from './admin/TestList'
+import ResultsAdmin   from './admin/ResultsAdmin'
 
 // Student
 import StudentLogin     from './student/StudentLogin'
@@ -35,7 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* Root redirect */}
+        {/* Root */}
         <Route path="/" element={<Navigate to="/student/login" />} />
 
         {/* Student Auth */}
@@ -47,7 +48,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/student/profile"   element={<StudentRoute><StudentProfile /></StudentRoute>} />
         <Route path="/student/tests"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
 
-        {/* Test Flow — no auth required (link from Telegram) */}
+        {/* Test Flow */}
         <Route path="/test/:token"          element={<TestAttempt />} />
         <Route path="/result/:result_id"    element={<ResultPage />} />
         <Route path="/leaderboard/:test_id" element={<Leaderboard />} />
@@ -55,11 +56,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-          <Route index element={<Navigate to="/admin/upload" />} />
-          <Route path="upload"    element={<Upload />} />
-          <Route path="questions" element={<QuestionBank />} />
-          <Route path="builder"   element={<TestBuilder />} />
-          <Route path="tests"     element={<TestList />} />
+          <Route index                   element={<Navigate to="/admin/dashboard" />} />
+          <Route path="dashboard"        element={<AdminDashboard />} />
+          <Route path="upload"           element={<Upload />} />
+          <Route path="questions"        element={<QuestionBank />} />
+          <Route path="builder"          element={<TestBuilder />} />
+          <Route path="tests"            element={<TestList />} />
           <Route path="results/:test_id" element={<ResultsAdmin />} />
         </Route>
 
