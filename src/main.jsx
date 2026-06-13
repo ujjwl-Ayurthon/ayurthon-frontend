@@ -16,6 +16,7 @@ import ResultsAdmin   from './admin/ResultsAdmin'
 // Student
 import StudentLogin     from './student/StudentLogin'
 import StudentDashboard from './student/StudentDashboard'
+import StudentTests     from './student/StudentTests'
 import StudentProgress  from './student/StudentProgress'
 import StudentProfile   from './student/StudentProfile'
 import TestAttempt      from './student/TestAttempt'
@@ -44,11 +45,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
         {/* Student App */}
         <Route path="/student/dashboard" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+        <Route path="/student/tests"     element={<StudentRoute><StudentTests /></StudentRoute>} />
         <Route path="/student/progress"  element={<StudentRoute><StudentProgress /></StudentRoute>} />
         <Route path="/student/profile"   element={<StudentRoute><StudentProfile /></StudentRoute>} />
-        <Route path="/student/tests"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
 
-        {/* Test Flow */}
+        {/* Test Flow — no auth required (Telegram link) */}
         <Route path="/test/:token"          element={<TestAttempt />} />
         <Route path="/result/:result_id"    element={<ResultPage />} />
         <Route path="/leaderboard/:test_id" element={<Leaderboard />} />
