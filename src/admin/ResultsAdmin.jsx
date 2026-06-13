@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom'
 import api from '../utils/api'
 
 export default function ResultsAdmin() {
-  // Dono params ko handle kar lete hain taaki router kisi bhi naam se param bheje, code na fate
   var params = useParams()
   var id = params.test_id || params.result_id || params.id
 
@@ -25,28 +24,34 @@ export default function ResultsAdmin() {
     setLoading(true)
     setErrorMsg(null)
 
-    // Parallel network requests to fetch test data
-    Promise.all([
-      api.get('/api/results/leaderboard/' + id + '?limit=200'),
-      api.get('/api/results/analytics/' + id),
-      api.get('/api/results/sheet/' + id)
-    ])
-    .then(function(responses) {
-      var lb = responses[0]
-      var an = responses[1]
-      var sh = responses[2]
+    // Alag-alag fetch karenge taaki ek fail ho toh baaki chalte rahein
+    api.get('/api/results/leaderboard/' + id + '?limit=200')
+      .then(function(res) {
+        setLeaderboard(res.data.leaderboard || [])
+      })
+      .catch(function(err) {
+        console.error("Leaderboard fetch error:", err)
+      })
 
-      setLeaderboard(lb.data.leaderboard || [])
-      setAnalytics(an.data.analytics || null)
-      setSheet(sh.data || null)
-    })
-    .catch(function(err) {
-      console.error("Error fetching results:", err)
-      setErrorMsg("Data load nahi ho paya. Prabandhak check karein ki kya ye ID sahi hai?")
-    })
-    .finally(function() {
-      setLoading(false)
-    })
+    api.get('/api/results/analytics/' + id)
+      .then(function(res) {
+        setAnalytics(res.data.analytics || null)
+      })
+      .catch(function(err) {
+        console.error("Analytics fetch error:", err)
+      })
+
+    api.get('/api/results/sheet/' + id)
+      .then(function(res) {
+        setSheet(res.data || null)
+      })
+      .catch(function(err) {
+        console.error("Sheet fetch error:", err)
+      })
+      .finally(function() {
+        setLoading(false)
+      })
+
   }, [id])
 
   function formatTime(sec) {
@@ -58,26 +63,15 @@ export default function ResultsAdmin() {
 
   function exportCSV() {
     if (!sheet || !sheet.sheet) return
-    
-    var header = [
-      'Rank', 'Name', 'Telegram', 'Score', 'Total', 
-      'Correct', 'Incorrect', 'Skipped', 'Accuracy%', 'Time(sec)'
-    ]
-    
+    var header = ['Rank', 'Name', 'Telegram', 'Score', 'Total', 'Correct', 'Incorrect', 'Skipped', 'Accuracy%', 'Time(sec)']
     if (sheet.questions) {
       sheet.questions.forEach(function(_, i) {
         header.push('Q' + (i + 1) + '_Selected')
         header.push('Q' + (i + 1) + '_Correct')
       })
     }
-
     var rows = sheet.sheet.map(function(s) {
-      var baseRow = [
-        s.rank, s.name, s.telegram_username, s.score, 
-        (s.correct + s.incorrect + s.unattempted), 
-        s.correct, s.incorrect, s.unattempted, s.accuracy, s.time_taken
-      ]
-      
+      var baseRow = [s.rank, s.name, s.telegram_username, s.score, (s.correct + s.incorrect + s.unattempted), s.correct, s.incorrect, s.unattempted, s.accuracy, s.time_taken]
       if (s.responses) {
         s.responses.forEach(function(r) {
           baseRow.push(r.selected || '')
@@ -86,11 +80,7 @@ export default function ResultsAdmin() {
       }
       return baseRow
     })
-
-    var csvContent = [header].concat(rows).map(function(r) {
-      return r.join(',')
-    }).join('\n')
-
+    var csvContent = [header].concat(rows).map(function(r) { return r.join(',') }).join('\n')
     var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     var url = URL.createObjectURL(blob)
     var a = document.createElement('a')
@@ -151,9 +141,6 @@ export default function ResultsAdmin() {
                 </button>
               )
             })}
-            <button className="btn btn-outline" onClick={exportCSV} style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', background: 'transparent', border: '1px solid #BDC3C7' }}>
-              ⬇️ Export CSV
-            </button>
           </div>
 
           {/* Leaderboard Tab */}
@@ -191,7 +178,7 @@ export default function ResultsAdmin() {
                   })}
                   {leaderboard.length === 0 && (
                     <tr>
-                      <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#95A5A6' }}>Koi result nahi mila.</td>
+                      <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#95A5A6' }}>Abhi tak is test ka koi submission nahi aaya hai ya backend connectivity bachi hai.</td>
                     </tr>
                   )}
                 </tbody>
@@ -203,67 +190,12 @@ export default function ResultsAdmin() {
           {tab === 'sheet' && sheet && (
             <div className="card" style={{ background: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '16px' }}>
               <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '4px' }}>📋 Complete Response Sheet</div>
-              <p style={{ fontSize: '0.85rem', color: '#7F8C8D', marginBottom: '16px' }}>Kisi bhi student par click karein uski full response dekhne ke liye</p>
-              
               {sheet.sheet?.map(function(s, i) {
                 return (
                   <div key={i} style={{ border: '1px solid #BDC3C7', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
-                    <div 
-                      style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: expandedRow === i ? '#FEF9E7' : 'white' }} 
-                      onClick={function() { setExpandedRow(expandedRow === i ? null : i) }}
-                    >
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <span className={`rank-badge rank-${s.rank <= 3 ? s.rank : 'other'}`}>{s.rank}</span>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{s.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#95A5A6' }}>@{s.telegram_username || '—'}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', alignItems: 'center' }}>
-                        <span style={{ color: '#E67E22', fontWeight: 700 }}>{s.score} marks</span>
-                        <span style={{ color: '#2ECC71' }}>✅{s.correct}</span>
-                        <span style={{ color: '#E74C3C' }}>❌{s.incorrect}</span>
-                        <span style={{ color: '#E67E22' }}>⬜{s.unattempted}</span>
-                        <span style={{ color: '#7F8C8D' }}>{formatTime(s.time_taken)}</span>
-                        <span>{expandedRow === i ? '▲' : '▼'}</span>
-                      </div>
-                    </div>
-                    
-                    {expandedRow === i && (
-                      <div style={{ padding: '12px 16px', background: '#F8F9FA', borderTop: '1px solid #BDC3C7' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '6px' }}>
-                          {s.responses?.map(function(r, j) {
-                            return (
-                              <div key={j} style={{ padding: '6px', borderRadius: '6px', textAlign: 'center', fontSize: '0.75rem', background: r.is_correct ? '#E8F8F5' : r.is_skipped ? '#EAEDED' : '#FADBD8', border: '1px solid ' + (r.is_correct ? '#2ECC71' : r.is_skipped ? '#BDC3C7' : '#E74C3C') }}>
-                                <div style={{ fontWeight: 700, color: '#7F8C8D' }}>Q{j + 1}</div>
-                                <div style={{ fontWeight: 700, color: r.is_correct ? '#2ECC71' : r.is_skipped ? '#7F8C8D' : '#E74C3C' }}>{r.selected || '⬜'}</div>
-                                <div style={{ color: '#2ECC71', fontSize: '0.68rem' }}>✓ {r.correct}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Distribution Tab */}
-          {tab === 'distribution' && analytics && (
-            <div className="card" style={{ background: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '16px' }}>
-              <div style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '16px' }}>Score Distribution</div>
-              {analytics.score_distribution && Object.entries(analytics.score_distribution).map(function([range, count]) {
-                var percentage = analytics.total_students > 0 ? (count / analytics.total_students) * 100 : 0
-                return (
-                  <div key={range} style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', marginBottom: '4px' }}>
-                      <span>{range}% Score Range</span>
-                      <span>{count} students</span>
-                    </div>
-                    <div style={{ background: '#EAEDED', borderRadius: '4px', height: '20px', overflow: 'hidden' }}>
-                      <div style={{ width: percentage + '%', background: 'var(--saffron, #E67E22)', height: '100%', transition: 'width 0.5s' }} />
+                    <div style={{ padding: '12px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={function() { setExpandedRow(expandedRow === i ? null : i) }}>
+                      <div><strong>{s.name}</strong></div>
+                      <div>{s.score} marks <span>{expandedRow === i ? '▲' : '▼'}</span></div>
                     </div>
                   </div>
                 )
