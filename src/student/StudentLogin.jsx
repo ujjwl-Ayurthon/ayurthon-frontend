@@ -1,10 +1,54 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Eye, EyeOff, MessageCircle, Mail, X, HelpCircle, Zap, ChevronRight } from "lucide-react";
-import { studentApi, session, extractToken, extractStudent } from "./utils/api.js";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG — change only these two lines if needed
+// ─────────────────────────────────────────────────────────────────────────────
 var SUPPORT_WHATSAPP = "916394099898";
 var SUPPORT_EMAIL    = "ujjawal9431@gmail.com";
+var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL)
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
+  : "https://ayurthon-backend.onrender.com";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH HELPERS — localStorage keys match backend expectations exactly
+// Admin  header: x-admin-token   | key: admin_token
+// Student header: x-student-token | key: student_token  (NO JWT, NO Bearer)
+// ─────────────────────────────────────────────────────────────────────────────
+function getStudentToken() {
+  try { return localStorage.getItem("student_token") || ""; } catch(e) { return ""; }
+}
+function saveStudentSession(token, user) {
+  try { localStorage.setItem("student_token", token); localStorage.setItem("student_user", JSON.stringify(user || {})); } catch(e) {}
+}
+function isStudentLoggedIn() {
+  var t = getStudentToken(); return t && t.length > 10;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API FETCH — returns { ok, status, data } — never throws
+// ─────────────────────────────────────────────────────────────────────────────
+function apiFetch(path, options) {
+  return fetch(API_BASE + path, options || {})
+    .then(function(res) {
+      var status = res.status;
+      return res.json()
+        .then(function(data) { return { ok: res.ok, status: status, data: data }; })
+        .catch(function() { return { ok: res.ok, status: status, data: {} }; });
+    })
+    .catch(function(err) {
+      return { ok: false, status: 0, data: { message: "Network error: " + (err.message || "Server unreachable") } };
+    });
+}
+
+// Extract token from various backend response shapes
+function extractToken(data) {
+  return data.token || (data.data && data.data.token) || (data.result && data.result.token) || "";
+}
+function extractStudentObj(data) {
+  return data.student || data.user || data.data || {};
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELP WIDGET
@@ -13,6 +57,7 @@ function HelpWidget() {
   var s = useState(false); var isOpen = s[0]; var setIsOpen = s[1];
   function openWA() { window.open("https://wa.me/" + SUPPORT_WHATSAPP + "?text=" + encodeURIComponent("Namaste! Ayurthon login mein madad chahiye."), "_blank"); }
   function openMail() { window.open("mailto:" + SUPPORT_EMAIL + "?subject=Ayurthon%20Login%20Help", "_blank"); }
+
   return (
     <div style={{ position: "fixed", bottom: "28px", right: "24px", zIndex: 999 }}>
       {isOpen && (
@@ -51,11 +96,8 @@ function StudentLogin() {
   var formS = useState({ name: "", telegram_username: "", password: "", confirm_password: "" });
   var form = formS[0]; var setForm = formS[1];
 
-  // ── If already logged in, skip to dashboard ───────────────────────────────
   useEffect(function() {
-    if (session.isStudentLoggedIn()) {
-      navigate("/student/dashboard", { replace: true });
-    }
+    if (isStudentLoggedIn()) { navigate("/student/dashboard", { replace: true }); }
   }, []);
 
   function resetForm() {
@@ -81,35 +123,34 @@ function StudentLogin() {
   function handleSubmit() {
     if (!validate()) return;
     setLoading(true); setError("");
-
     var username = form.telegram_username.toLowerCase().trim().replace(/^@/, "");
-    var apiCall = mode === "login"
-      ? studentApi.login(username, form.password)
-      : studentApi.register(form.name.trim(), username, form.password);
+    var endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+    var body = mode === "login"
+      ? { telegram_username: username, password: form.password }
+      : { name: form.name.trim(), telegram_username: username, password: form.password };
 
-    apiCall.then(function(result) {
-      setLoading(false);
-      // status 0 = network error
-      if (result.status === 0) {
-        setError("Server se connect nahi ho pa raha. Internet check karo. (Render backend cold-start mein 30 sec lag sakta hai — dobara try karo.)");
-        return;
-      }
-      var token = extractToken(result.data);
-      if (token && token.length > 5) {
-        session.saveStudent(token, extractStudent(result.data));
-        navigate("/student/dashboard", { replace: true });
-      } else {
-        // Map HTTP status to friendly Hindi messages
-        var msg = result.data.message || result.data.error || result.data.msg || "";
-        if (!msg) {
-          if (result.status === 401) msg = "Username ya password galat hai. Dobara check karo.";
-          else if (result.status === 404) msg = "Yeh username registered nahi hai. Pehle register karo.";
-          else if (result.status === 409) msg = "Yeh username pehle se registered hai. Login karo ya alag username try karo.";
-          else msg = "Kuch galat ho gaya (HTTP " + result.status + "). Thodi der baad retry karo.";
+    apiFetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function(result) {
+        setLoading(false);
+        if (result.status === 0) {
+          setError("Server se connect nahi ho pa raha. Internet check karo. (Render cold start mein 30 sec lag sakta hai — dobara try karo.)");
+          return;
         }
-        setError(msg);
-      }
-    });
+        var token = extractToken(result.data);
+        if (token && token.length > 5) {
+          saveStudentSession(token, extractStudentObj(result.data));
+          navigate("/student/dashboard", { replace: true });
+        } else {
+          var msg = result.data.message || result.data.error || result.data.msg || "";
+          if (!msg) {
+            if (result.status === 401) msg = "Username ya password galat hai. Dobara check karo.";
+            else if (result.status === 404) msg = "Yeh username registered nahi hai. Pehle register karo.";
+            else if (result.status === 409) msg = "Yeh username pehle se registered hai. Login karo ya alag username try karo.";
+            else msg = "Kuch galat ho gaya (HTTP " + result.status + "). Thodi der baad retry karo.";
+          }
+          setError(msg);
+        }
+      });
   }
 
   function onKey(e) { if (e.key === "Enter" && !loading) handleSubmit(); }
@@ -123,7 +164,6 @@ function StudentLogin() {
       <div style={{ position: "fixed", bottom: "-60px", right: "-60px", width: "350px", height: "350px", borderRadius: "50%", background: "radial-gradient(circle,rgba(212,175,55,0.09) 0%,transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: "420px" }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div onClick={function() { navigate("/"); }} style={{ display: "inline-flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: "8px" }}>
             <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "linear-gradient(135deg,#0D9488,#0f766e)", display: "flex", alignItems: "center", justifyContent: "center" }}><BookOpen size={20} color="white" /></div>
@@ -132,17 +172,12 @@ function StudentLogin() {
           <p style={{ fontSize: "13px", color: "#64748b", margin: "0" }}>by Dr. Ujjawal Pratap Singh</p>
         </div>
 
-        {/* Card */}
         <div style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: "24px", boxShadow: "0 24px 64px rgba(13,148,136,0.12), 0 1px 0 rgba(255,255,255,0.9) inset", padding: "36px 32px" }}>
-
-          {/* Toggle */}
           <div style={{ display: "flex", background: "rgba(241,245,249,0.80)", borderRadius: "12px", padding: "4px", marginBottom: "28px" }}>
             {["login","register"].map(function(m) {
-              return (
-                <button key={m} onClick={function() { setMode(m); resetForm(); }} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: "none", background: mode === m ? "white" : "transparent", color: mode === m ? "#0D9488" : "#64748b", fontWeight: mode === m ? "700" : "500", fontSize: "13px", cursor: "pointer", boxShadow: mode === m ? "0 2px 8px rgba(15,23,42,0.08)" : "none", transition: "all 0.2s" }}>
-                  {m === "login" ? "Login" : "Register"}
-                </button>
-              );
+              return (<button key={m} onClick={function() { setMode(m); resetForm(); }} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: "none", background: mode === m ? "white" : "transparent", color: mode === m ? "#0D9488" : "#64748b", fontWeight: mode === m ? "700" : "500", fontSize: "13px", cursor: "pointer", boxShadow: mode === m ? "0 2px 8px rgba(15,23,42,0.08)" : "none", transition: "all 0.2s" }}>
+                {m === "login" ? "Login" : "Register"}
+              </button>);
             })}
           </div>
 
@@ -177,9 +212,7 @@ function StudentLogin() {
           </div>
 
           {error && (
-            <div style={{ marginTop: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.20)", color: "#be123c", fontSize: "13px", lineHeight: "1.55" }}>
-              {error}
-            </div>
+            <div style={{ marginTop: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.20)", color: "#be123c", fontSize: "13px", lineHeight: "1.55" }}>{error}</div>
           )}
 
           <button onClick={handleSubmit} disabled={loading} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", marginTop: "24px", padding: "14px", borderRadius: "12px", border: "none", background: loading ? "#94a3b8" : "linear-gradient(135deg,#0D9488,#0f766e)", color: "white", fontSize: "15px", fontWeight: "700", cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 8px 24px rgba(13,148,136,0.30)" }}>
@@ -198,7 +231,6 @@ function StudentLogin() {
           <button onClick={function() { navigate("/"); }} style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "13px", cursor: "pointer" }}>← Wapas Home par jaao</button>
         </div>
       </div>
-
       <HelpWidget />
     </div>
   );
