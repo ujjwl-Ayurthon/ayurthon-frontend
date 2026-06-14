@@ -1,121 +1,69 @@
 // =============================================================================
-// api.js — Single source of truth for ALL API calls in Ayurthon Frontend
-// Place at: src/utils/api.js
-//
-// Architecture (from PROJECT_HANDOFF.md):
-//   Admin auth   → header: "x-admin-token"    (localStorage key: "admin_token")
-//   Student auth → header: "x-student-token"  (localStorage key: "student_token")
-//   NO JWT, NO Bearer, NO cookies — custom Base64 token
+// src/utils/api.js — Ayurthon Frontend Network Layer
+// Auth: x-admin-token (admin) | x-student-token (student)
+// NO JWT, NO Bearer — custom Base64 token (PROJECT_HANDOFF.md)
+// localStorage keys: "admin_token" | "student_token"
 // =============================================================================
 
 var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL)
-  ? import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
   : "https://ayurthon-backend.onrender.com";
 
-API_BASE = API_BASE.replace(/\/$/, "");
-
+// ── Token getters ─────────────────────────────────────────────────────────────
 function getAdminToken() {
-  try { return localStorage.getItem("admin_token") || ""; }
-  catch (e) { return ""; }
+  try { return localStorage.getItem("admin_token") || ""; } catch (e) { return ""; }
 }
-
 function getStudentToken() {
-  try { return localStorage.getItem("student_token") || ""; }
-  catch (e) { return ""; }
+  try { return localStorage.getItem("student_token") || ""; } catch (e) { return ""; }
 }
 
+// ── Header builders ───────────────────────────────────────────────────────────
 function adminHeaders() {
   return { "Content-Type": "application/json", "x-admin-token": getAdminToken() };
 }
-
 function studentHeaders() {
   return { "Content-Type": "application/json", "x-student-token": getStudentToken() };
 }
-
 function publicHeaders() {
   return { "Content-Type": "application/json" };
 }
 
+// ── Core fetch — never throws, always resolves ────────────────────────────────
 function apiFetch(path, options) {
   var url = API_BASE + path;
-  var opts = options || {};
-  return fetch(url, opts)
-    .then(function(res) {
+  return fetch(url, options || {})
+    .then(function (res) {
       var status = res.status;
       return res.json()
-        .then(function(data) { return { ok: res.ok, status: status, data: data }; })
-        .catch(function() { return { ok: res.ok, status: status, data: {} }; });
+        .then(function (data) { return { ok: res.ok, status: status, data: data }; })
+        .catch(function () { return { ok: res.ok, status: status, data: {} }; });
     })
-    .catch(function(err) {
+    .catch(function (err) {
       return { ok: false, status: 0, data: { message: "Network error: " + (err.message || "Server unreachable") } };
     });
 }
 
-var adminApi = {
-  login: function(password) {
-    return apiFetch("/api/admin/login", { method: "POST", headers: publicHeaders(), body: JSON.stringify({ password: password }) });
-  },
-  getQuestionStats: function() { return apiFetch("/api/questions/stats/count", { headers: adminHeaders() }); },
-  getTests: function() { return apiFetch("/api/tests", { headers: adminHeaders() }); },
-  getStudents: function() { return apiFetch("/api/students", { headers: adminHeaders() }); },
-  resetStudentPassword: function(id) {
-    return apiFetch("/api/students/" + id + "/reset-password", { method: "POST", headers: adminHeaders() });
-  },
-  getAnalytics: function(testId) { return apiFetch("/api/results/analytics/" + testId, { headers: adminHeaders() }); },
-};
-
-var studentApi = {
-  register: function(name, username, password) {
-    return apiFetch("/api/auth/register", {
-      method: "POST", headers: publicHeaders(),
-      body: JSON.stringify({ name: name, telegram_username: username.toLowerCase().replace(/^@/, ""), password: password }),
-    });
-  },
-  login: function(username, password) {
-    return apiFetch("/api/auth/login", {
-      method: "POST", headers: publicHeaders(),
-      body: JSON.stringify({ telegram_username: username.toLowerCase().replace(/^@/, ""), password: password }),
-    });
-  },
-  getMe: function() { return apiFetch("/api/auth/me", { headers: studentHeaders() }); },
-  updateProfile: function(payload) {
-    return apiFetch("/api/auth/profile", { method: "PUT", headers: studentHeaders(), body: JSON.stringify(payload) });
-  },
-  changePassword: function(oldPw, newPw) {
-    return apiFetch("/api/auth/change-password", { method: "PUT", headers: studentHeaders(), body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
-  },
-  getDashboard: function() { return apiFetch("/api/student/dashboard/stats", { headers: studentHeaders() }); },
-  getHistory: function() { return apiFetch("/api/student/dashboard/history", { headers: studentHeaders() }); },
-  getAvailableTests: function() { return apiFetch("/api/student/dashboard/available-tests", { headers: studentHeaders() }); },
-  getResult: function(id) { return apiFetch("/api/results/" + id, { headers: studentHeaders() }); },
-};
-
-var session = {
-  saveStudent: function(token, user) {
-    try { localStorage.setItem("student_token", token); localStorage.setItem("student_user", JSON.stringify(user || {})); } catch (e) {}
-  },
-  getStudentToken: getStudentToken,
-  getStudentUser: function() { try { return JSON.parse(localStorage.getItem("student_user") || "{}"); } catch (e) { return {}; } },
-  isStudentLoggedIn: function() { var t = getStudentToken(); return t && t.length > 10; },
-  clearStudent: function() { try { localStorage.removeItem("student_token"); localStorage.removeItem("student_user"); } catch (e) {} },
-  saveAdmin: function(token) { try { localStorage.setItem("admin_token", token); } catch (e) {} },
-  getAdminToken: getAdminToken,
-  isAdminLoggedIn: function() { var t = getAdminToken(); return t && t.length > 5; },
-  clearAdmin: function() { try { localStorage.removeItem("admin_token"); } catch (e) {} },
-};
-
+// ── Token extractor — handles all backend response shapes ─────────────────────
 function extractToken(data) {
-  return data.token || (data.data && data.data.token) || (data.result && data.result.token) || "";
+  if (!data) return "";
+  return data.token
+    || data.adminToken
+    || data.admin_token
+    || (data.data && data.data.token)
+    || (data.result && data.result.token)
+    || "";
 }
 
 function extractStudent(data) {
+  if (!data) return {};
   return data.student || data.user || data.data || {};
 }
 
+// ── Array extractor — handles [], {key:[]}, nested shapes ────────────────────
 function extractArray(data, preferredKeys) {
   if (!data) return [];
   if (Array.isArray(data)) return data;
-  var keys = preferredKeys || ["data","result","students","tests","questions","list","users"];
+  var keys = preferredKeys || ["data", "result", "students", "tests", "questions", "list", "users"];
   for (var i = 0; i < keys.length; i++) {
     if (data[keys[i]] && Array.isArray(data[keys[i]])) return data[keys[i]];
   }
@@ -126,60 +74,163 @@ function extractArray(data, preferredKeys) {
   return [];
 }
 
-function ayurthonDebug() {
-  var at = getAdminToken(); var st = getStudentToken();
-  console.group("=== AYURTHON AUTH DEBUG ===");
-  console.log("API_BASE:", API_BASE);
-  console.log("admin_token:", at ? at.substring(0,20)+"..." : "MISSING ❌");
-  console.log("student_token:", st ? st.substring(0,20)+"..." : "MISSING ❌");
-  console.log("admin headers sent:", adminHeaders());
-  console.log("student headers sent:", studentHeaders());
-  fetch(API_BASE + "/api/questions/stats/count", { headers: adminHeaders() })
-    .then(function(r) { console.log("Admin API ping — HTTP", r.status, r.status===200?"✅":"❌"); })
-    .catch(function(e) { console.error("Admin API NETWORK FAIL:", e.message); });
-  fetch(API_BASE + "/api/auth/me", { headers: studentHeaders() })
-    .then(function(r) { console.log("Student API ping — HTTP", r.status, r.status===200?"✅":"❌"); })
-    .catch(function(e) { console.error("Student API NETWORK FAIL:", e.message); });
-  console.groupEnd();
-}
+// ── Session helpers ───────────────────────────────────────────────────────────
+var session = {
+  // Admin
+  saveAdmin: function (token) {
+    try { localStorage.setItem("admin_token", token); } catch (e) {}
+  },
+  getAdminToken: getAdminToken,
+  isAdminLoggedIn: function () {
+    var t = getAdminToken();
+    return !!(t && t.length > 8);
+  },
+  clearAdmin: function () {
+    try { localStorage.removeItem("admin_token"); } catch (e) {}
+  },
+  // Student
+  saveStudent: function (token, user) {
+    try {
+      localStorage.setItem("student_token", token);
+      localStorage.setItem("student_user", JSON.stringify(user || {}));
+    } catch (e) {}
+  },
+  getStudentToken: getStudentToken,
+  isStudentLoggedIn: function () {
+    var t = getStudentToken();
+    return !!(t && t.length > 8);
+  },
+  clearStudent: function () {
+    try {
+      localStorage.removeItem("student_token");
+      localStorage.removeItem("student_user");
+    } catch (e) {}
+  },
+  getStudentUser: function () {
+    try { return JSON.parse(localStorage.getItem("student_user") || "{}"); } catch (e) { return {}; }
+  },
+};
 
-if (typeof window !== "undefined") { window.ayurthonDebug = ayurthonDebug; }
+// ── Named API groups ──────────────────────────────────────────────────────────
+var adminApi = {
+  login: function (password) {
+    return apiFetch("/api/admin/login", {
+      method: "POST", headers: publicHeaders(),
+      body: JSON.stringify({ password: password }),
+    });
+  },
+  getQuestionStats: function () { return apiFetch("/api/questions/stats/count", { headers: adminHeaders() }); },
+  getTests: function () { return apiFetch("/api/tests", { headers: adminHeaders() }); },
+  getStudents: function () { return apiFetch("/api/students", { headers: adminHeaders() }); },
+  resetStudentPassword: function (id) {
+    return apiFetch("/api/students/" + id + "/reset-password", { method: "POST", headers: adminHeaders() });
+  },
+  uploadQuestions: function (payload) {
+    return apiFetch("/api/questions/upload", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload) });
+  },
+  parseQuestions: function (text) {
+    return apiFetch("/api/questions/parse", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ text: text }) });
+  },
+  getQuestions: function (params) {
+    var query = params ? ("?" + Object.keys(params).map(function (k) { return k + "=" + encodeURIComponent(params[k]); }).join("&")) : "";
+    return apiFetch("/api/questions" + query, { headers: adminHeaders() });
+  },
+  updateQuestion: function (id, payload) {
+    return apiFetch("/api/questions/" + id, { method: "PUT", headers: adminHeaders(), body: JSON.stringify(payload) });
+  },
+  deleteQuestion: function (id) {
+    return apiFetch("/api/questions/" + id, { method: "DELETE", headers: adminHeaders() });
+  },
+  bulkDeleteQuestions: function (ids) {
+    return apiFetch("/api/questions/bulk-delete", { method: "POST", headers: adminHeaders(), body: JSON.stringify({ ids: ids }) });
+  },
+  createTest: function (payload) {
+    return apiFetch("/api/tests", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload) });
+  },
+  updateTest: function (id, payload) {
+    return apiFetch("/api/tests/" + id, { method: "PUT", headers: adminHeaders(), body: JSON.stringify(payload) });
+  },
+  publishTest: function (id, payload) {
+    return apiFetch("/api/tests/" + id + "/publish", { method: "POST", headers: adminHeaders(), body: JSON.stringify(payload || {}) });
+  },
+  deleteTest: function (id) {
+    return apiFetch("/api/tests/" + id, { method: "DELETE", headers: adminHeaders() });
+  },
+  recalculateRanks: function (id) {
+    return apiFetch("/api/tests/" + id + "/recalculate-ranks", { method: "POST", headers: adminHeaders() });
+  },
+  getLeaderboard: function (id) { return apiFetch("/api/results/leaderboard/" + id, { headers: adminHeaders() }); },
+  getSheet: function (id) { return apiFetch("/api/results/sheet/" + id, { headers: adminHeaders() }); },
+  getAnalytics: function (id) { return apiFetch("/api/results/analytics/" + id, { headers: adminHeaders() }); },
+  getChannels: function () { return apiFetch("/api/tests/channels/list", { headers: adminHeaders() }); },
+  getTaxonomy: function () { return apiFetch("/api/questions/taxonomy", { headers: adminHeaders() }); },
+};
 
-export { API_BASE, adminApi, studentApi, session, extractToken, extractStudent, extractArray, ayurthonDebug };
+var studentApi = {
+  login: function (username, password) {
+    return apiFetch("/api/auth/login", {
+      method: "POST", headers: publicHeaders(),
+      body: JSON.stringify({ telegram_username: username.toLowerCase().replace(/^@/, ""), password: password }),
+    });
+  },
+  register: function (name, username, password) {
+    return apiFetch("/api/auth/register", {
+      method: "POST", headers: publicHeaders(),
+      body: JSON.stringify({ name: name, telegram_username: username.toLowerCase().replace(/^@/, ""), password: password }),
+    });
+  },
+  getMe: function () { return apiFetch("/api/auth/me", { headers: studentHeaders() }); },
+  updateProfile: function (payload) {
+    return apiFetch("/api/auth/profile", { method: "PUT", headers: studentHeaders(), body: JSON.stringify(payload) });
+  },
+  changePassword: function (oldPw, newPw) {
+    return apiFetch("/api/auth/change-password", { method: "PUT", headers: studentHeaders(), body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
+  },
+  getDashboard: function () { return apiFetch("/api/student/dashboard/stats", { headers: studentHeaders() }); },
+  getHistory: function () { return apiFetch("/api/student/dashboard/history", { headers: studentHeaders() }); },
+  getAvailableTests: function () { return apiFetch("/api/student/dashboard/available-tests", { headers: studentHeaders() }); },
+  getResult: function (id) { return apiFetch("/api/results/" + id, { headers: studentHeaders() }); },
+  submitResult: function (payload) {
+    return apiFetch("/api/results/submit", { method: "POST", headers: studentHeaders(), body: JSON.stringify(payload) });
+  },
+  checkResult: function (token, username) {
+    return apiFetch("/api/results/check/" + token + "/" + username, { headers: studentHeaders() });
+  },
+  getLeaderboard: function (id) { return apiFetch("/api/results/leaderboard/" + id, { headers: studentHeaders() }); },
+  getAttempt: function (token) { return apiFetch("/api/tests/attempt/" + token); },
+};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DEFAULT EXPORT — handles both:
-//   import api from '../utils/api'          (Upload.jsx style)
-//   import { adminApi } from '../utils/api' (named import style)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Default export (handles: import api from '../utils/api') ──────────────────
 var api = {
   admin: adminApi,
   student: studentApi,
   session: session,
+  apiFetch: apiFetch,
   extractToken: extractToken,
   extractStudent: extractStudent,
   extractArray: extractArray,
-  // Direct shortcuts that Upload.jsx likely uses
-  get: function(path, headers) {
-    return fetch((API_BASE + path), { headers: Object.assign({ "Content-Type": "application/json" }, headers || {}) })
-      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
-      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
-  },
-  post: function(path, body, headers) {
-    return fetch((API_BASE + path), { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(body || {}) })
-      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
-      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
-  },
-  put: function(path, body, headers) {
-    return fetch((API_BASE + path), { method: "PUT", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(body || {}) })
-      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
-      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
-  },
-  delete: function(path, headers) {
-    return fetch((API_BASE + path), { method: "DELETE", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}) })
-      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
-      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
-  },
+  adminHeaders: adminHeaders,
+  studentHeaders: studentHeaders,
+  publicHeaders: publicHeaders,
+  getAdminToken: getAdminToken,
+  getStudentToken: getStudentToken,
+  API_BASE: API_BASE,
 };
 
 export default api;
+
+export {
+  API_BASE,
+  apiFetch,
+  adminApi,
+  studentApi,
+  session,
+  extractToken,
+  extractStudent,
+  extractArray,
+  adminHeaders,
+  studentHeaders,
+  publicHeaders,
+  getAdminToken,
+  getStudentToken,
+};
