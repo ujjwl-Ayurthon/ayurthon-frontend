@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+"react";
+import { useNavigate } from "react-router-import { useState, useEffect } from dom";
 import { BookOpen, Eye, EyeOff, Lock, Zap } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ function saveAdminToken(token) {
 }
 function isAdminLoggedIn() {
   var t = getAdminToken();
-  return !!(t && t.length > 8);
+  return !!(t && t.length > 0);
 }
 
 // Never throws — always { ok, status, data }
@@ -85,7 +85,7 @@ function AdminLogin() {
 
       var token = extractAdminToken(result.data);
 
-      if (token && token.length > 3) {
+      if (token && token.length > 0) {
         // Save token → then navigate (synchronous localStorage, safe)
         saveAdminToken(token);
         navigate("/admin/dashboard", { replace: true });
