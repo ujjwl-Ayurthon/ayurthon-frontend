@@ -1,28 +1,72 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, ClipboardList, BarChart2, RefreshCw, Eye, EyeOff, Copy, CheckCircle, Search, X, AlertTriangle, TrendingUp, Activity } from "lucide-react";
-import { adminApi, session, extractArray } from "./utils/api.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
+var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL)
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
+  : "https://ayurthon-backend.onrender.com";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS — all inline, zero imports needed
+// ─────────────────────────────────────────────────────────────────────────────
+function getAdminToken() {
+  try { return localStorage.getItem("admin_token") || ""; } catch(e) { return ""; }
+}
+function adminHeaders() {
+  return { "Content-Type": "application/json", "x-admin-token": getAdminToken() };
+}
+function clearAdmin() {
+  try { localStorage.removeItem("admin_token"); } catch(e) {}
+}
 function formatDate(str) {
   if (!str) return "—";
   try { return new Date(str).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }); }
-  catch (e) { return "—"; }
+  catch(e) { return "—"; }
 }
 
-// Classify a failed API response — returns { isAuthError, message }
+// Never throws — always returns { ok, status, data }
+function apiFetch(path, options) {
+  return fetch(API_BASE + path, options || {})
+    .then(function(res) {
+      var status = res.status;
+      return res.json()
+        .then(function(data) { return { ok: res.ok, status: status, data: data }; })
+        .catch(function() { return { ok: res.ok, status: status, data: {} }; });
+    })
+    .catch(function(err) {
+      return { ok: false, status: 0, data: { message: "Network error: " + (err.message || "Server unreachable") } };
+    });
+}
+
+// Robust array extractor — handles [], {students:[]}, {data:[]}, {result:[]}, {users:[]}
+function extractArray(data, keys) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  var ks = keys || ["students","data","result","users","tests","list"];
+  for (var i = 0; i < ks.length; i++) {
+    if (data[ks[i]] && Array.isArray(data[ks[i]])) return data[ks[i]];
+  }
+  var all = Object.keys(data);
+  for (var j = 0; j < all.length; j++) {
+    if (Array.isArray(data[all[j]])) return data[all[j]];
+  }
+  return [];
+}
+
+// Classify API error — separates auth errors from network/other errors
+// KEY FIX: status 0 (network) must NEVER show "session expired"
 function classifyError(result) {
-  // status 0 = network/CORS error
   if (result.status === 0) {
-    return { isAuthError: false, message: "Server unreachable. Check internet aur Render backend status. (Cold start mein 30 sec lag sakta hai — refresh karo.)" };
+    return { isAuthError: false, message: "Server unreachable. Internet check karo ya Render backend cold start ka wait karo (~30 sec). Phir Refresh karo." };
   }
   if (result.status === 401 || result.status === 403) {
     return { isAuthError: true, message: "Admin token invalid ya expire ho gaya. Logout karke dobara login karo." };
   }
   if (result.status === 404) {
-    return { isAuthError: false, message: "API route /api/students nahi mila. Backend mein route check karo." };
+    return { isAuthError: false, message: "API route /api/students nahi mila (HTTP 404). Backend mein students.js route check karo." };
   }
   var msg = (result.data && (result.data.message || result.data.error || result.data.msg)) || ("Server error (HTTP " + result.status + ").");
   return { isAuthError: false, message: msg };
@@ -52,22 +96,20 @@ function ResetPasswordModal(props) {
 
   function handleReset() {
     setLoading(true); setError("");
-    adminApi.resetStudentPassword(student._id).then(function(r) {
-      setLoading(false);
-      var pw = r.data.new_password || r.data.newPassword || r.data.password || "";
-      if (pw) { setResult(pw); }
-      else {
-        var c = classifyError(r);
-        setError(c.message);
-      }
-    });
+    apiFetch("/api/students/" + student._id + "/reset-password", { method: "POST", headers: adminHeaders() })
+      .then(function(r) {
+        setLoading(false);
+        var pw = r.data.new_password || r.data.newPassword || r.data.password || "";
+        if (pw) { setResult(pw); }
+        else { setError(classifyError(r).message); }
+      });
   }
 
   function handleCopy() {
     if (!result) return;
     try {
       navigator.clipboard.writeText(result).then(function() { setCopied(true); setTimeout(function() { setCopied(false); }, 2200); });
-    } catch (e) {
+    } catch(e) {
       var el = document.createElement("textarea"); el.value = result;
       document.body.appendChild(el); el.select(); document.execCommand("copy"); document.body.removeChild(el);
       setCopied(true); setTimeout(function() { setCopied(false); }, 2200);
@@ -132,22 +174,21 @@ function StudentManagement() {
 
   function fetchStudents() {
     setLoading(true); setErrorInfo(null);
-    adminApi.getStudents().then(function(result) {
-      setLoading(false);
-      if (!result.ok) {
-        // ── Do NOT show "session expired" for network errors (status 0) ──────
-        setErrorInfo(classifyError(result));
-        return;
-      }
-      // ── Robust array extraction ─────────────────────────────────────────────
-      var arr = extractArray(result.data, ["students","data","result","users","list"]);
-      setStudents(arr);
-      if (arr.length === 0 && !Array.isArray(result.data)) {
-        // Backend returned an object but no recognizable array — likely an error body
-        var msg = result.data.message || result.data.error || result.data.msg || "";
-        if (msg) setErrorInfo({ isAuthError: false, message: msg });
-      }
-    });
+    apiFetch("/api/students", { headers: adminHeaders() })
+      .then(function(result) {
+        setLoading(false);
+        if (!result.ok) {
+          setErrorInfo(classifyError(result));
+          return;
+        }
+        var arr = extractArray(result.data, ["students","data","result","users","list"]);
+        setStudents(arr);
+        // If response was ok but no array found and data has a message, show it
+        if (arr.length === 0 && !Array.isArray(result.data)) {
+          var msg = result.data && (result.data.message || result.data.error || "");
+          if (msg) setErrorInfo({ isAuthError: false, message: msg });
+        }
+      });
   }
 
   useEffect(function() { fetchStudents(); }, []);
@@ -163,8 +204,6 @@ function StudentManagement() {
 
   return (
     <GlassCard style={{ padding: "0", overflow: "hidden" }}>
-
-      {/* Header */}
       <div style={{ padding: "20px 24px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", borderBottom: "1px solid rgba(226,232,240,0.60)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: "rgba(13,148,136,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}><Users size={18} color="#0D9488" /></div>
@@ -184,17 +223,14 @@ function StudentManagement() {
         </div>
       </div>
 
-      {/* Body */}
       {loading ? (
         <div style={{ padding: "56px", textAlign: "center" }}>
           <RefreshCw size={28} color="#0D9488" style={{ animation: "spin 1s linear infinite", marginBottom: "14px" }} />
           <div style={{ color: "#64748b", fontSize: "14px" }}>Students load ho rahe hain...</div>
         </div>
-
       ) : errorInfo ? (
         <div style={{ padding: "40px", textAlign: "center" }}>
           <AlertTriangle size={28} color={errorInfo.isAuthError ? "#be123c" : "#d97706"} style={{ marginBottom: "12px" }} />
-          {/* Auth error gets red banner, network/other gets amber */}
           <div style={{ padding: "12px 16px", borderRadius: "12px", marginBottom: "16px", background: errorInfo.isAuthError ? "rgba(225,29,72,0.08)" : "rgba(245,158,11,0.08)", border: "1px solid " + (errorInfo.isAuthError ? "rgba(225,29,72,0.20)" : "rgba(245,158,11,0.25)"), color: errorInfo.isAuthError ? "#be123c" : "#92400e", fontSize: "13px", lineHeight: "1.6", textAlign: "left" }}>
             {errorInfo.message}
           </div>
@@ -202,23 +238,17 @@ function StudentManagement() {
             <button onClick={fetchStudents} style={{ padding: "9px 22px", borderRadius: "9px", border: "none", background: "linear-gradient(135deg,#0D9488,#0f766e)", color: "white", fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>Retry</button>
           )}
         </div>
-
       ) : filtered.length === 0 ? (
         <div style={{ padding: "56px", textAlign: "center", color: "#94a3b8", fontSize: "14px" }}>
-          {search ? "\"" + search + "\" ke liye koi student nahi mila." : "Abhi tak koi student register nahi hua hai."}
+          {search ? '"' + search + '" ke liye koi student nahi mila.' : "Abhi tak koi student register nahi hua hai."}
         </div>
-
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "600px" }}>
             <thead>
               <tr>
-                <th style={th}>#</th>
-                <th style={th}>Name</th>
-                <th style={th}>Telegram Username</th>
-                <th style={th}>Registered On</th>
-                <th style={th}>Tests</th>
-                <th style={th}>Status</th>
+                <th style={th}>#</th><th style={th}>Name</th><th style={th}>Telegram Username</th>
+                <th style={th}>Registered On</th><th style={th}>Tests</th><th style={th}>Status</th>
                 <th style={Object.assign({}, th, { textAlign: "center" })}>Password Reset</th>
               </tr>
             </thead>
@@ -229,8 +259,7 @@ function StudentManagement() {
                 return (
                   <tr key={s._id || idx}
                     onMouseEnter={function(e) { e.currentTarget.style.background = "rgba(13,148,136,0.03)"; }}
-                    onMouseLeave={function(e) { e.currentTarget.style.background = "transparent"; }}
-                  >
+                    onMouseLeave={function(e) { e.currentTarget.style.background = "transparent"; }}>
                     <td style={Object.assign({}, td, { color: "#94a3b8", fontWeight: "600", width: "36px" })}>{idx + 1}</td>
                     <td style={td}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -263,13 +292,9 @@ function StudentManagement() {
           </table>
         </div>
       )}
-
       {!loading && !errorInfo && filtered.length > 0 && (
-        <div style={{ padding: "12px 24px", borderTop: "1px solid rgba(226,232,240,0.60)", fontSize: "12px", color: "#94a3b8", textAlign: "right" }}>
-          {filtered.length} / {students.length} students shown
-        </div>
+        <div style={{ padding: "12px 24px", borderTop: "1px solid rgba(226,232,240,0.60)", fontSize: "12px", color: "#94a3b8", textAlign: "right" }}>{filtered.length} / {students.length} students shown</div>
       )}
-
       {resetStudent && <ResetPasswordModal student={resetStudent} onClose={function() { setResetStudent(null); }} />}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </GlassCard>
@@ -300,19 +325,21 @@ function StatCard(props) {
 // ─────────────────────────────────────────────────────────────────────────────
 function AdminDashboard() {
   var navigate = useNavigate();
-  var statsS  = useState(null);      var stats = statsS[0]; var setStats = statsS[1];
-  var slS     = useState(true);      var statsLoading = slS[0]; var setStatsLoading = slS[1];
-  var liveS   = useState([]);        var liveTests = liveS[0]; var setLiveTests = liveS[1];
-  var tabS    = useState("overview"); var activeTab = tabS[0]; var setActiveTab = tabS[1];
+  var statsS = useState(null);       var stats = statsS[0]; var setStats = statsS[1];
+  var slS    = useState(true);       var statsLoading = slS[0]; var setStatsLoading = slS[1];
+  var liveS  = useState([]);         var liveTests = liveS[0]; var setLiveTests = liveS[1];
+  var tabS   = useState("overview"); var activeTab = tabS[0]; var setActiveTab = tabS[1];
 
   useEffect(function() {
-    adminApi.getQuestionStats().then(function(r) { if (r.ok) setStats(r.data); setStatsLoading(false); });
-    adminApi.getTests().then(function(r) {
-      if (r.ok) { var arr = extractArray(r.data, ["tests","data","result"]); setLiveTests(arr.filter(function(t) { return t.status === "published"; })); }
-    });
+    apiFetch("/api/questions/stats/count", { headers: adminHeaders() })
+      .then(function(r) { if (r.ok) setStats(r.data); setStatsLoading(false); });
+    apiFetch("/api/tests", { headers: adminHeaders() })
+      .then(function(r) {
+        if (r.ok) { var arr = extractArray(r.data, ["tests","data","result"]); setLiveTests(arr.filter(function(t) { return t.status === "published"; })); }
+      });
   }, []);
 
-  function handleLogout() { session.clearAdmin(); navigate("/admin/login", { replace: true }); }
+  function handleLogout() { clearAdmin(); navigate("/admin/login", { replace: true }); }
 
   var tabs = [{ id: "overview", label: "Overview", icon: BarChart2 }, { id: "students", label: "Student Management", icon: Users }];
 
@@ -351,23 +378,22 @@ function AdminDashboard() {
               <div style={{ padding: "18px 24px", borderBottom: "1px solid rgba(226,232,240,0.60)" }}>
                 <div style={{ fontFamily: "Georgia,serif", fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>Live Tests Right Now</div>
               </div>
-              {liveTests.length === 0 ? (
-                <div style={{ padding: "36px", textAlign: "center", color: "#94a3b8", fontSize: "14px" }}>Abhi koi test published nahi hai.</div>
-              ) : (
-                <div style={{ padding: "8px 0" }}>
-                  {liveTests.map(function(test) {
-                    return (
-                      <div key={test._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", borderBottom: "1px solid rgba(226,232,240,0.40)", gap: "12px", flexWrap: "wrap" }}>
-                        <div>
-                          <div style={{ fontWeight: "600", color: "#0f172a", fontSize: "14px" }}>{test.title}</div>
-                          <div style={{ fontSize: "12px", color: "#64748b" }}>{Array.isArray(test.questions) ? test.questions.length : "?"} Questions · {test.duration_minutes} min · +{test.correct_marks}/−{test.negative_marks}</div>
+              {liveTests.length === 0
+                ? <div style={{ padding: "36px", textAlign: "center", color: "#94a3b8", fontSize: "14px" }}>Abhi koi test published nahi hai.</div>
+                : <div style={{ padding: "8px 0" }}>
+                    {liveTests.map(function(test) {
+                      return (
+                        <div key={test._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", borderBottom: "1px solid rgba(226,232,240,0.40)", gap: "12px", flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontWeight: "600", color: "#0f172a", fontSize: "14px" }}>{test.title}</div>
+                            <div style={{ fontSize: "12px", color: "#64748b" }}>{Array.isArray(test.questions) ? test.questions.length : "?"} Questions · {test.duration_minutes} min · +{test.correct_marks}/−{test.negative_marks}</div>
+                          </div>
+                          <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: "700", background: "rgba(13,148,136,0.10)", color: "#0D9488", border: "1px solid rgba(13,148,136,0.22)" }}>🟢 Published</span>
                         </div>
-                        <span style={{ display: "inline-block", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: "700", background: "rgba(13,148,136,0.10)", color: "#0D9488", border: "1px solid rgba(13,148,136,0.22)" }}>🟢 Published</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+              }
             </GlassCard>
           </div>
         )}
