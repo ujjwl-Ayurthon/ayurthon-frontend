@@ -16,11 +16,20 @@ export default function AdminDashboard() {
 
   var API_BASE = "https://ayurthon-backend.onrender.com";
 
-  // 💡 FIXED: Loose authentication guard that logs warning instead of throwing instant loop kicks
+  // 💡 FIXED AUTH MOUNT: Strict Delay Protection to Kill Redirection Loops
   useEffect(function() {
     var token = localStorage.getItem("admin_token");
-    if (!token) {
-      navigate("/admin/login");
+    if (!token || token.length === 0) {
+      // 100ms ka buffer delay taaki runtime synchronization complete ho sake
+      var t = setTimeout(function() {
+        var recheckToken = localStorage.getItem("admin_token");
+        if (!recheckToken) {
+          navigate("/admin/login", { replace: true });
+        } else {
+          fetchStudents();
+        }
+      }, 100);
+      return function() { clearTimeout(t); };
     } else {
       fetchStudents();
     }
@@ -55,13 +64,13 @@ export default function AdminDashboard() {
     })
     .catch(function() {
       setLoading(false);
-      setError("Student roster fetch trace standalone compiled.");
+      setError("Student roster syncing trace standalone compiled.");
     });
   }
 
   function handleLogout() {
     localStorage.removeItem("admin_token");
-    navigate("/admin/login");
+    navigate("/admin/login", { replace: true });
   }
 
   function generateRandomPassword() {
@@ -99,7 +108,7 @@ export default function AdminDashboard() {
       return res.json();
     })
     .then(function() {
-      setResetLoading(false);
+      setResetLoading(true);
       alert("Password reset successfully done bhai!");
     })
     .catch(function() {
@@ -142,7 +151,6 @@ export default function AdminDashboard() {
               <h1 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: "700", color: "#0f172a" }}>Student Management</h1>
               <p style={{ margin: "0", fontSize: "13px", color: "#64748b" }}>Total Registered Students: {students.length}</p>
             </div>
-            
             <div style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
               <input type="text" placeholder="Search students..." value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} style={{ width: "100%", padding: "10px 12px 10px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
             </div>
@@ -188,7 +196,6 @@ export default function AdminDashboard() {
           <div style={{ background: "white", width: "100%", maxWidth: "400px", borderRadius: "16px", padding: "24px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
             <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: "700" }}>Reset Password</h3>
             <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#64748b" }}>Student: <b>{selectedStudent.name}</b></p>
-            
             <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "between", marginBottom: "20px" }}>
               <span style={{ fontFamily: "monospace", fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>{newPassword}</span>
               <div style={{ display: "flex", gap: "8px" }}>
@@ -200,7 +207,6 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
-
             <div style={{ display: "flex", gap: "12px", justifyContent: "end" }}>
               <button onClick={function() { setSelectedStudent(null); }} style={{ background: "#e2e8f0", color: "#475569", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "14px" }}>Cancel</button>
               <button onClick={submitPasswordReset} disabled={resetLoading} style={{ background: "#0D9488", color: "white", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", cursor: "pointer", fontSize: "14px" }}>
