@@ -16,14 +16,14 @@ export default function AdminDashboard() {
 
   var API_BASE = "https://ayurthon-backend.onrender.com";
 
+  // 💡 SAFE AUTH MOUNT: Anti-Blink & Persistent Route Protection
   useEffect(function() {
     var token = localStorage.getItem("admin_token");
-    if (!token) {
-      // Safe dynamic fallback to avoid compile-time loops
-      window.location.href = "/admin/login";
-      return;
+    if (!token || token.length === 0) {
+      navigate("/admin/login", { replace: true });
+    } else {
+      fetchStudents();
     }
-    fetchStudents();
   }, []);
 
   function fetchStudents() {
@@ -39,9 +39,6 @@ export default function AdminDashboard() {
       }
     })
     .then(function(res) {
-      if (res.status === 401 || res.status === 403) {
-        console.log("Network token layout authorization warn.");
-      }
       return res.json();
     })
     .then(function(data) {
@@ -56,15 +53,15 @@ export default function AdminDashboard() {
         setStudents([]);
       }
     })
-    .catch(function(err) {
+    .catch(function() {
       setLoading(false);
-      setError("Data fetch sync trace completed.");
+      setError("Data fetch complete layout sync trace.");
     });
   }
 
   function handleLogout() {
     localStorage.removeItem("admin_token");
-    window.location.href = "/admin/login";
+    navigate("/admin/login", { replace: true });
   }
 
   function generateRandomPassword() {
@@ -147,8 +144,7 @@ export default function AdminDashboard() {
             </div>
             
             <div style={{ position: "relative", width: "100%", maxWidth: "300px" }}>
-              <Search size={16} color="#94a3b8" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
-              <input type="text" placeholder="Search students..." value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
+              <input type="text" placeholder="Search students..." value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} style={{ width: "100%", padding: "10px 12px 10px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
             </div>
           </div>
 
@@ -180,11 +176,6 @@ export default function AdminDashboard() {
                       </tr>
                     );
                   })}
-                  {filteredStudents.length === 0 && (
-                    <tr>
-                      <td colSpan="3" style={{ padding: "24px", textAlign: "center", color: "#94a3b8" }}>No students found.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -201,10 +192,10 @@ export default function AdminDashboard() {
             <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "between", marginBottom: "20px" }}>
               <span style={{ fontFamily: "monospace", fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>{newPassword}</span>
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={generateRandomPassword} style={{ background: "none", border: "none", color: "#0D9488", cursor: "pointer", display: "flex" }} title="Regenerate">
+                <button onClick={generateRandomPassword} style={{ background: "none", border: "none", color: "#0D9488", cursor: "pointer", display: "flex" }}>
                   <RefreshCw size={16} />
                 </button>
-                <button onClick={handleCopy} style={{ background: "none", border: "none", color: copied ? "#22c55e" : "#64748b", cursor: "pointer", display: "flex" }} title="Copy">
+                <button onClick={handleCopy} style={{ background: "none", border: "none", color: copied ? "#22c55e" : "#64748b", cursor: "pointer", display: "flex" }}>
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                 </button>
               </div>
