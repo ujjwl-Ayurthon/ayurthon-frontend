@@ -11,11 +11,9 @@ export default function AdminLogin() {
 
   var API_BASE = "https://ayurthon-backend.onrender.com";
 
+  // 💡 FIXED: Completely removed auto-mount redirection to kill the instant feedback loop
   useEffect(function() {
-    var token = localStorage.getItem("admin_token");
-    if (token && token.length > 0) {
-      navigate("/admin/dashboard", { replace: true });
-    }
+    console.log("Admin Login initialized safely.");
   }, []);
 
   function handleSubmit() {
@@ -26,12 +24,9 @@ export default function AdminLogin() {
     setLoading(true);
     setError("");
 
-    // 💡 FIXED FULL ROUTE: Correctly routing to /api/admin/login to hit the router post handler
     fetch(API_BASE + "/api/admin/login", {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json" 
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: password })
     })
     .then(function(res) {
@@ -44,14 +39,15 @@ export default function AdminLogin() {
       if (result.ok) {
         var token = result.data.token || "0604";
         localStorage.setItem("admin_token", token);
-        navigate("/admin/dashboard", { replace: true });
+        // Force explicit path change
+        navigate("/admin/dashboard");
       } else {
-        setError(result.data.message || "Galat password enter kiya hai.");
+        setError(result.data.message || "Galat password entered.");
       }
     })
     .catch(function() {
       setLoading(false);
-      setError("Backend se connectivity issue hai bhai.");
+      setError("Backend connectivity issue. Retry karo.");
     });
   }
 
