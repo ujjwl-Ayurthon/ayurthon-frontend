@@ -9,13 +9,12 @@ export default function AdminLogin() {
   var [error, setError] = useState("");
   var [showPass, setShowPass] = useState(false);
 
-  // 💡 FIXED BASE ENDPOINT
   var API_BASE = "https://ayurthon-backend.onrender.com";
 
   useEffect(function() {
     var token = localStorage.getItem("admin_token");
     if (token && token.length > 0) {
-      window.location.href = "/admin/dashboard";
+      navigate("/admin/dashboard", { replace: true });
     }
   }, []);
 
@@ -27,10 +26,12 @@ export default function AdminLogin() {
     setLoading(true);
     setError("");
 
-    // 💡 FIXED: Bypassed double matching suffix layer to talk directly with admin.js router
-    fetch(API_BASE + "/api/admin", {
+    // 💡 FIXED FULL ROUTE: Correctly routing to /api/admin/login to hit the router post handler
+    fetch(API_BASE + "/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({ password: password })
     })
     .then(function(res) {
@@ -43,7 +44,7 @@ export default function AdminLogin() {
       if (result.ok) {
         var token = result.data.token || "0604";
         localStorage.setItem("admin_token", token);
-        window.location.href = "/admin/dashboard";
+        navigate("/admin/dashboard", { replace: true });
       } else {
         setError(result.data.message || "Galat password enter kiya hai.");
       }
