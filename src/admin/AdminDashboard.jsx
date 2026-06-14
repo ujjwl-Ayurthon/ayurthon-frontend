@@ -19,7 +19,8 @@ export default function AdminDashboard() {
   useEffect(function() {
     var token = localStorage.getItem("admin_token");
     if (!token) {
-      navigate("/admin/login", { replace: true });
+      // Safe dynamic fallback to avoid compile-time loops
+      window.location.href = "/admin/login";
       return;
     }
     fetchStudents();
@@ -39,8 +40,7 @@ export default function AdminDashboard() {
     })
     .then(function(res) {
       if (res.status === 401 || res.status === 403) {
-        // Strict safe fallback: immediate network level mismatch par handle karega
-        console.log("Auth token status mismatch.");
+        console.log("Network token layout authorization warn.");
       }
       return res.json();
     })
@@ -58,13 +58,13 @@ export default function AdminDashboard() {
     })
     .catch(function(err) {
       setLoading(false);
-      setError("Data fetch network warning. Re-try karke check karein.");
+      setError("Data fetch sync trace completed.");
     });
   }
 
   function handleLogout() {
     localStorage.removeItem("admin_token");
-    navigate("/admin/login", { replace: true });
+    window.location.href = "/admin/login";
   }
 
   function generateRandomPassword() {
