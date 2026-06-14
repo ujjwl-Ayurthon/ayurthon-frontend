@@ -11,11 +11,9 @@ export default function AdminLogin() {
 
   var API_BASE = "https://ayurthon-backend.onrender.com";
 
+  // Safe Mount: Remove auto-redirect loop on login page mount
   useEffect(function() {
-    var token = localStorage.getItem("admin_token");
-    if (token && token.length > 0) {
-      navigate("/admin/dashboard", { replace: true });
-    }
+    console.log("Admin Login Loaded.");
   }, []);
 
   function handleSubmit() {
@@ -41,7 +39,8 @@ export default function AdminLogin() {
       if (result.ok) {
         var token = result.data.token || "0604";
         localStorage.setItem("admin_token", token);
-        navigate("/admin/dashboard", { replace: true });
+        // Force fully synchronized layout shift
+        window.location.href = "/admin/dashboard";
       } else {
         setError(result.data.message || "Galat password enter kiya hai.");
       }
