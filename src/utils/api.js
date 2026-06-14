@@ -146,3 +146,40 @@ function ayurthonDebug() {
 if (typeof window !== "undefined") { window.ayurthonDebug = ayurthonDebug; }
 
 export { API_BASE, adminApi, studentApi, session, extractToken, extractStudent, extractArray, ayurthonDebug };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEFAULT EXPORT — handles both:
+//   import api from '../utils/api'          (Upload.jsx style)
+//   import { adminApi } from '../utils/api' (named import style)
+// ─────────────────────────────────────────────────────────────────────────────
+var api = {
+  admin: adminApi,
+  student: studentApi,
+  session: session,
+  extractToken: extractToken,
+  extractStudent: extractStudent,
+  extractArray: extractArray,
+  // Direct shortcuts that Upload.jsx likely uses
+  get: function(path, headers) {
+    return fetch((API_BASE + path), { headers: Object.assign({ "Content-Type": "application/json" }, headers || {}) })
+      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
+      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
+  },
+  post: function(path, body, headers) {
+    return fetch((API_BASE + path), { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(body || {}) })
+      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
+      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
+  },
+  put: function(path, body, headers) {
+    return fetch((API_BASE + path), { method: "PUT", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}), body: JSON.stringify(body || {}) })
+      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
+      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
+  },
+  delete: function(path, headers) {
+    return fetch((API_BASE + path), { method: "DELETE", headers: Object.assign({ "Content-Type": "application/json" }, headers || {}) })
+      .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, status: res.status, data: data }; }).catch(function() { return { ok: res.ok, status: res.status, data: {} }; }); })
+      .catch(function(err) { return { ok: false, status: 0, data: { message: err.message || "Network error" } }; });
+  },
+};
+
+export default api;
