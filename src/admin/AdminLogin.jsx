@@ -1,5 +1,5 @@
-"react";
-import { useNavigate } from "react-router-import { useState, useEffect } from dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { BookOpen, Eye, EyeOff, Lock, Zap } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
