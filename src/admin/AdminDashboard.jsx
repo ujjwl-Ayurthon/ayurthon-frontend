@@ -20,7 +20,7 @@ function adminHeaders() {
   return { "Content-Type": "application/json", "x-admin-token": getAdminToken() };
 }
 function isAdminLoggedIn() {
-  var t = getAdminToken(); return !!(t && t.length > 8);
+  var t = getAdminToken(); return !!(t && t.length > 0);
 }
 function clearAdmin() {
   try { localStorage.removeItem("admin_token"); } catch (e) {}
