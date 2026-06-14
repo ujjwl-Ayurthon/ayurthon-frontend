@@ -401,10 +401,17 @@ function AdminDashboard() {
         {activeTab === "students" && (
           <div>
             <div style={{ marginBottom: "24px" }}>
-              <h1 style={{ fontFamily: "Georgia,serif", fontSize: "22px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px" }}>Student Management</h1>
-              <p style={{ fontSize: "13px", color: "#64748b", margin: "0" }}>Saare registered students — profile, status, password reset.</p>
+              <h1 style={{ fontFamily: "Georgia,serif", fontSize: "22px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px" }}>
+                Student Management
+              </h1>
+              <p style={{ fontSize: "13px", color: "#64748b", margin: "0" }}>Saare registered students — profile, status, password reset dekho.</p>
             </div>
-            <StudentManagement />
+            <StudentManagement
+              students={students}
+              loading={studentsLoading}
+              error={studentsError}
+              onRefresh={fetchStudentsList}
+            />
           </div>
         )}
       </div>
@@ -412,4 +419,5 @@ function AdminDashboard() {
   );
 }
 
+export default AdminDashboard;
 export default AdminDashboard;
