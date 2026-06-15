@@ -1,32 +1,50 @@
-// Student auth utilities
+// ─────────────────────────────────────────────────────────────────────────────
+// studentAuth.js — Student auth utilities
+// Place at: src/utils/studentAuth.js
+// ─────────────────────────────────────────────────────────────────────────────
 
-export function getStudentToken() {
-  return localStorage.getItem('ayurthon_student_token');
+var BACKEND = "https://ayurthon-backend.onrender.com";
+var TOKEN_KEY = "ayurthon_student_token";
+var USER_KEY  = "student_user";
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ""; } catch(e) { return ""; }
 }
 
-export function getStudentData() {
-  var d = localStorage.getItem('ayurthon_student_data');
-  try { return d ? JSON.parse(d) : null; } catch(e) { return null; }
+function clearSession() {
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch(e) {}
 }
 
-export function saveStudentSession(token, student) {
-  localStorage.setItem('ayurthon_student_token', token);
-  localStorage.setItem('ayurthon_student_data', JSON.stringify(student));
+function getUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || "{}"); } catch(e) { return {}; }
 }
 
-export function clearStudentSession() {
-  localStorage.removeItem('ayurthon_student_token');
-  localStorage.removeItem('ayurthon_student_data');
+// Call this in useEffect on every protected page
+// onValid: callback when token is valid (receives user object)
+// onInvalid: callback when token is missing/expired (redirect to login)
+function validateSession(onValid, onInvalid) {
+  var token = getToken();
+  if (!token) { onInvalid(); return; }
+
+  fetch(BACKEND + "/api/auth/me", {
+    headers: { "Content-Type": "application/json", "x-student-token": token }
+  })
+    .then(function(res) {
+      if (res.ok) {
+        return res.json().then(function(data) {
+          onValid(data.student || data.user || data || {});
+        });
+      } else {
+        clearSession();
+        onInvalid();
+      }
+    })
+    .catch(function() {
+      // Network error — use cached user, don't logout
+      var cached = getUser();
+      if (cached && cached._id) { onValid(cached); }
+      else { onInvalid(); }
+    });
 }
 
-export function isStudentLoggedIn() {
-  return !!getStudentToken();
-}
-
-// Get avatar initials
-export function getInitials(name) {
-  if (!name) return '?';
-  var parts = name.trim().split(' ');
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-}
+export { getToken, clearSession, getUser, validateSession, TOKEN_KEY, BACKEND };
