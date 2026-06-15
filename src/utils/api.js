@@ -83,7 +83,7 @@ var session = {
   getAdminToken: getAdminToken,
   isAdminLoggedIn: function () {
     var t = getAdminToken();
-    return !!(t && t.length > 8);
+    return !!(t && t.length > 0);
   },
   clearAdmin: function () {
     try { localStorage.removeItem("admin_token"); } catch (e) {}
@@ -98,7 +98,7 @@ var session = {
   getStudentToken: getStudentToken,
   isStudentLoggedIn: function () {
     var t = getStudentToken();
-    return !!(t && t.length > 8);
+    return !!(t && t.length > 0);
   },
   clearStudent: function () {
     try {
