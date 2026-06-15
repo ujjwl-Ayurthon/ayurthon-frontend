@@ -17,10 +17,10 @@ var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.
 // Student header: x-student-token | key: student_token  (NO JWT, NO Bearer)
 // ─────────────────────────────────────────────────────────────────────────────
 function getStudentToken() {
-  try { return localStorage.getItem("student_token") || ""; } catch(e) { return ""; }
+  try { return localStorage.getItem("ayurthon_student_token") || ""; } catch(e) { return ""; }
 }
 function saveStudentSession(token, user) {
-  try { localStorage.setItem("student_token", token); localStorage.setItem("student_user", JSON.stringify(user || {})); } catch(e) {}
+  try { localStorage.setItem("ayurthon_student_token", token); localStorage.setItem("student_user", JSON.stringify(user || {})); } catch(e) {}
 }
 function isStudentLoggedIn() {
   var t = getStudentToken(); return !!(t && t.length > 0);
