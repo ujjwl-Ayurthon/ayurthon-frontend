@@ -254,14 +254,10 @@ function AdminDashboard() {
       return;
     }
 
-    // Load data — 401 response pe logout karo
+    // Load data — sirf display ke liye, 401 pe redirect nahi
+    // (different routes may have different auth middleware)
     apiFetch("/api/questions/stats/count", { headers: adminHeaders() })
       .then(function (r) {
-        if (r.status === 401 || r.status === 403) {
-          clearAdmin();
-          navigate("/admin/login", { replace: true });
-          return;
-        }
         if (r.ok) setStats(r.data);
         setStatsLoading(false);
       });
