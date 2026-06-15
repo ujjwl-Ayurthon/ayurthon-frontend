@@ -27,7 +27,7 @@ import Leaderboard from './student/Leaderboard'
 import LandingPage from "./LandingPage"
 
 function AdminRoute({ children }) {
-  var token = localStorage.getItem('ayurthon_admin_token')
+  var token = localStorage.getItem('admin_token')
   return token ? children : <Navigate to="/admin/login" />
 }
 
