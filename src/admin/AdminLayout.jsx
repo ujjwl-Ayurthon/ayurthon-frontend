@@ -4,7 +4,7 @@ export default function AdminLayout() {
   var navigate = useNavigate()
 
   function logout() {
-    localStorage.removeItem('ayurthon_admin_token')
+    localStorage.removeItem('admin_token')
     navigate('/admin/login')
   }
 
