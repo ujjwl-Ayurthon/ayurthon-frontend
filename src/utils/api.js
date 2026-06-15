@@ -215,6 +215,56 @@ var api = {
   getAdminToken: getAdminToken,
   getStudentToken: getStudentToken,
   API_BASE: API_BASE,
+
+  // ── Axios-style methods — used by Upload, QuestionBank, TestBuilder, TestList, ResultsAdmin
+  // Header key: "ayurthon_admin_token" (main.jsx AdminRoute uses this key)
+  get: function(path, config) {
+    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    return fetch(API_BASE + path, { headers: headers })
+      .then(function(res) {
+        return res.json().then(function(data) {
+          if (!res.ok) { var err = new Error(data.message || 'Request failed'); err.response = { data: data, status: res.status }; throw err; }
+          return { data: data, status: res.status };
+        });
+      });
+  },
+
+  post: function(path, body, config) {
+    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    return fetch(API_BASE + path, { method: 'POST', headers: headers, body: JSON.stringify(body || {}) })
+      .then(function(res) {
+        return res.json().then(function(data) {
+          if (!res.ok) { var err = new Error(data.message || 'Request failed'); err.response = { data: data, status: res.status }; throw err; }
+          return { data: data, status: res.status };
+        });
+      });
+  },
+
+  put: function(path, body, config) {
+    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    return fetch(API_BASE + path, { method: 'PUT', headers: headers, body: JSON.stringify(body || {}) })
+      .then(function(res) {
+        return res.json().then(function(data) {
+          if (!res.ok) { var err = new Error(data.message || 'Request failed'); err.response = { data: data, status: res.status }; throw err; }
+          return { data: data, status: res.status };
+        });
+      });
+  },
+
+  delete: function(path, config) {
+    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    return fetch(API_BASE + path, { method: 'DELETE', headers: headers })
+      .then(function(res) {
+        return res.json().then(function(data) {
+          if (!res.ok) { var err = new Error(data.message || 'Request failed'); err.response = { data: data, status: res.status }; throw err; }
+          return { data: data, status: res.status };
+        });
+      });
+  },
 };
 
 export default api;
