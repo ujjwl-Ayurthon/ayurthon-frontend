@@ -23,7 +23,7 @@ function saveStudentSession(token, user) {
   try { localStorage.setItem("student_token", token); localStorage.setItem("student_user", JSON.stringify(user || {})); } catch(e) {}
 }
 function isStudentLoggedIn() {
-  var t = getStudentToken(); return t && t.length > 10;
+  var t = getStudentToken(); return !!(t && t.length > 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ function StudentLogin() {
           return;
         }
         var token = extractToken(result.data);
-        if (token && token.length > 5) {
+        if (token && token.length > 0) {
           saveStudentSession(token, extractStudentObj(result.data));
           navigate("/student/dashboard", { replace: true });
         } else {
