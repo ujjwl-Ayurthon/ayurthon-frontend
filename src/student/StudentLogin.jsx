@@ -97,7 +97,20 @@ function StudentLogin() {
   var form = formS[0]; var setForm = formS[1];
 
   useEffect(function() {
-    if (isStudentLoggedIn()) { navigate("/student/dashboard", { replace: true }); }
+    var token = getStudentToken();
+    if (!token) return;
+    // Validate token with backend — never redirect on stale/empty token
+    fetch(API_BASE + "/api/auth/me", {
+      headers: { "Content-Type": "application/json", "x-student-token": token }
+    })
+      .then(function(res) {
+        if (res.ok) {
+          navigate("/student/dashboard", { replace: true });
+        } else {
+          try { localStorage.removeItem("ayurthon_student_token"); localStorage.removeItem("student_user"); } catch(e) {}
+        }
+      })
+      .catch(function() { /* network error - stay on login */ });
   }, []);
 
   function resetForm() {
