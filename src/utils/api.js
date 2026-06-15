@@ -2,7 +2,7 @@
 // src/utils/api.js — Ayurthon Frontend Network Layer
 // Auth: x-admin-token (admin) | x-student-token (student)
 // NO JWT, NO Bearer — custom Base64 token (PROJECT_HANDOFF.md)
-// localStorage keys: "admin_token" | "student_token"
+// localStorage keys: "admin_token" | "ayurthon_student_token"
 // =============================================================================
 
 var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL)
@@ -14,7 +14,7 @@ function getAdminToken() {
   try { return localStorage.getItem("admin_token") || ""; } catch (e) { return ""; }
 }
 function getStudentToken() {
-  try { return localStorage.getItem("student_token") || ""; } catch (e) { return ""; }
+  try { return localStorage.getItem("ayurthon_student_token") || ""; } catch (e) { return ""; }
 }
 
 // ── Header builders ───────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ var session = {
   // Student
   saveStudent: function (token, user) {
     try {
-      localStorage.setItem("student_token", token);
+      localStorage.setItem("ayurthon_student_token", token);
       localStorage.setItem("student_user", JSON.stringify(user || {}));
     } catch (e) {}
   },
@@ -102,7 +102,7 @@ var session = {
   },
   clearStudent: function () {
     try {
-      localStorage.removeItem("student_token");
+      localStorage.removeItem("ayurthon_student_token");
       localStorage.removeItem("student_user");
     } catch (e) {}
   },
