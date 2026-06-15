@@ -5,7 +5,8 @@
 // localStorage keys: "admin_token" | "ayurthon_student_token"
 // =============================================================================
 
-var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL)
+var BACKEND_URL = "https://ayurthon-backend.onrender.com";
+var API_BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim() !== "")
   ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
   : "https://ayurthon-backend.onrender.com";
 
