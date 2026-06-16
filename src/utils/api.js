@@ -219,9 +219,15 @@ var api = {
 
   // ── Axios-style methods — used by Upload, QuestionBank, TestBuilder, TestList, ResultsAdmin
   // Header key: "ayurthon_admin_token" (main.jsx AdminRoute uses this key)
+  // ── Axios-style methods ───────────────────────────────────────────────────
+  // Token logic: if caller passes x-student-token in config.headers, that takes
+  // priority. Otherwise admin token is used (for admin pages like Upload, QB etc.)
+  // This means StudentDashboard's manual header injection works correctly.
   get: function(path, config) {
-    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
-    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    var callerHeaders = (config && config.headers) || {};
+    var defaultToken  = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var defaultAuth   = callerHeaders['x-student-token'] ? {} : { 'x-admin-token': defaultToken };
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, defaultAuth, callerHeaders);
     return fetch(API_BASE + path, { headers: headers })
       .then(function(res) {
         return res.json().then(function(data) {
@@ -232,8 +238,10 @@ var api = {
   },
 
   post: function(path, body, config) {
-    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
-    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    var callerHeaders = (config && config.headers) || {};
+    var defaultToken  = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var defaultAuth   = callerHeaders['x-student-token'] ? {} : { 'x-admin-token': defaultToken };
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, defaultAuth, callerHeaders);
     return fetch(API_BASE + path, { method: 'POST', headers: headers, body: JSON.stringify(body || {}) })
       .then(function(res) {
         return res.json().then(function(data) {
@@ -244,8 +252,10 @@ var api = {
   },
 
   put: function(path, body, config) {
-    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
-    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    var callerHeaders = (config && config.headers) || {};
+    var defaultToken  = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var defaultAuth   = callerHeaders['x-student-token'] ? {} : { 'x-admin-token': defaultToken };
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, defaultAuth, callerHeaders);
     return fetch(API_BASE + path, { method: 'PUT', headers: headers, body: JSON.stringify(body || {}) })
       .then(function(res) {
         return res.json().then(function(data) {
@@ -256,8 +266,10 @@ var api = {
   },
 
   delete: function(path, config) {
-    var token = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
-    var headers = Object.assign({ 'Content-Type': 'application/json', 'x-admin-token': token }, (config && config.headers) || {});
+    var callerHeaders = (config && config.headers) || {};
+    var defaultToken  = localStorage.getItem('ayurthon_admin_token') || localStorage.getItem('admin_token') || '';
+    var defaultAuth   = callerHeaders['x-student-token'] ? {} : { 'x-admin-token': defaultToken };
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, defaultAuth, callerHeaders);
     return fetch(API_BASE + path, { method: 'DELETE', headers: headers })
       .then(function(res) {
         return res.json().then(function(data) {
