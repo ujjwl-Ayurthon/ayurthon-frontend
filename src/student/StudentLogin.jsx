@@ -96,10 +96,14 @@ function StudentLogin() {
   var formS = useState({ name: "", telegram_username: "", password: "", confirm_password: "" });
   var form = formS[0]; var setForm = formS[1];
 
+  // checkingSession: true = showing spinner while validating existing token
+  var sessS = useState(true);
+  var checkingSession = sessS[0]; var setCheckingSession = sessS[1];
+
   useEffect(function() {
     var token = getStudentToken();
-    if (!token) return;
-    // Validate token with backend — never redirect on stale/empty token
+    if (!token) { setCheckingSession(false); return; }
+    // Validate existing token — show spinner, then decide
     fetch(API_BASE + "/api/auth/me", {
       headers: { "Content-Type": "application/json", "x-student-token": token }
     })
@@ -107,11 +111,27 @@ function StudentLogin() {
         if (res.ok) {
           navigate("/student/dashboard", { replace: true });
         } else {
+          // Token invalid — clear and show login form
           try { localStorage.removeItem("ayurthon_student_token"); localStorage.removeItem("student_user"); } catch(e) {}
+          setCheckingSession(false);
         }
       })
-      .catch(function() { /* network error - stay on login */ });
+      .catch(function() {
+        // Network error (Render cold start) — show login form, don't block user
+        setCheckingSession(false);
+      });
   }, []);
+
+  // Show spinner while validating existing session
+  if (checkingSession) {
+    return (
+      <div style={{ minHeight: "100vh", background: "linear-gradient(145deg,#F1F5F9 0%,#e8f4f1 40%,#F1F5F9 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "16px" }}>
+        <div style={{ width: "36px", height: "36px", border: "3px solid rgba(13,148,136,0.2)", borderTop: "3px solid #0D9488", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <p style={{ color: "#64748b", fontSize: "14px" }}>Session check ho raha hai...</p>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   function resetForm() {
     setForm({ name: "", telegram_username: "", password: "", confirm_password: "" });
