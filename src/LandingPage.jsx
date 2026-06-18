@@ -18,8 +18,8 @@ var TELEGRAM_CHANNEL = "https://t.me/Ayurthon";
 // STATS CONFIG — Edit values OR connect to API
 // ─────────────────────────────────────────────────────────────────────────────
 var statsData = [
-  { id: "students",  label: "Active Students",           value: "1,200+", icon: Users },
-  { id: "tests",     label: "Tests Conducted",           value: "340+",   icon: BookOpen },
+  { id: "students",  label: "Active Students",           value: "100+", icon: Users },
+  { id: "tests",     label: "Tests Conducted",           value: "100+",   icon: BookOpen },
   { id: "questions", label: "Question Bank",             value: "10,000+",icon: Target },
   { id: "accuracy",  label: "Avg. Accuracy Improvement", value: "38%",    icon: TrendingUp },
 ];
@@ -32,29 +32,29 @@ var statsData = [
 var TESTIMONIALS = [
   {
     id: "t1",
-    name: "Dr. Priya S.",
-    college: "GAC Pune",
+    name: "Dr. Rahul agarwal",
+    college: "IMS,BHU",
     text: "Ayurthon ke daily tests ne mera revision completely structure kar diya. Result mein bada difference aaya.",
     stars: 5,
   },
   {
     id: "t2",
-    name: "Dr. Rahul K.",
-    college: "NIA Jaipur",
+    name: "Dr. Dhirendra singh yadav",
+    college: "IMS BHU",
     text: "Sanskrit aur Hindi questions perfectly render hote hain. Pehli bar kisi platform par yeh dekha.",
     stars: 5,
   },
   {
     id: "t3",
-    name: "Dr. Sneha M.",
-    college: "IPGT&RA Jamnagar",
+    name: "Dr. shivam jaiswal",
+    college: "IMS BHU",
     text: "Progress page ne mujhe dikha diya ki Rachana Sharir main weak hoon. Target kar ke padha — score improve hua.",
     stars: 5,
   },
   {
     id: "t4",
-    name: "Dr. Amit V.",
-    college: "BMC Pune",
+    name: "Dr. Ruchi singh",
+    college: "GACH PATNA",
     text: "Leaderboard feature ne competitive spirit jagaa diya. Har test mein apna rank improve karna motivation deta hai.",
     stars: 5,
   },
@@ -69,8 +69,8 @@ var RESOURCES_DATA = {
     { id: "b1", title: "Charak Samhita — BAMS 1st Year Notes", downloadUrl: "https://t.me/Ayurthon" },
     { id: "b2", title: "Sushrut Samhita — Complete Study Guide", downloadUrl: "https://t.me/Ayurthon" },
     { id: "b3", title: "Ashtang Hridayam — Key Points Summary", downloadUrl: "https://t.me/Ayurthon" },
-    { id: "b4", title: "Dravyaguna Vigyan — Quick Reference", downloadUrl: "https://t.me/Ayurthon" },
-    { id: "b5", title: "Rasashastra & Bhaishajya Kalpana Notes", downloadUrl: "https://t.me/Ayurthon" },
+    { id: "b4", title: "Dravyaguna,RSBK", downloadUrl: "https://t.me/Ayurthon" },
+    { id: "b5", title: "GYNAE ,PEDIA", downloadUrl: "https://t.me/Ayurthon" },
     { id: "b6", title: "Kriya Sharir — MCQ Bank (Subject-wise)", downloadUrl: "https://t.me/Ayurthon" },
     { id: "b7", title: "Rachana Sharir — Diagram Notes", downloadUrl: "https://t.me/Ayurthon" },
     { id: "b8", title: "Swasthavritta — Preventive Ayurveda Notes", downloadUrl: "https://t.me/Ayurthon" },
